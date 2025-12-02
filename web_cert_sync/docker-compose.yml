@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  cert-sync:
+    build: .
+    container_name: cert-sync-web
+    ports:
+      - "5000:5000"
+    volumes:
+      # 挂载 SSH 密钥（用于连接远程服务器）
+      - ~/.ssh:/root/.ssh:ro
+      # 挂载 ACME 证书目录
+      - /root/.acme.sh:/root/.acme.sh:ro
+      # 挂载服务器列表文件
+      - /export0/shell/scp_cert/servers.txt:/app/servers.txt:ro
+      # 挂载环境配置文件
+      - ./.env:/app/.env:ro
+    environment:
+      - DRY_RUN=False
+      - SERVER_LIST_PATH=/app/servers.txt
+    restart: unless-stopped
+    networks:
+      - cert-sync-network
+
+networks:
+  cert-sync-network:
+    driver: bridge
