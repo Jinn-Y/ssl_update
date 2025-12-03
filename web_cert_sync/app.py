@@ -41,6 +41,50 @@ def get_domains():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/servers', methods=['GET'])
+def get_servers():
+    """API endpoint to get server list from servers.txt file."""
+    config = Config()
+    server_list_path = config.SERVER_LIST_PATH
+    servers = []
+    
+    try:
+        if os.path.exists(server_list_path):
+            with open(server_list_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        servers.append(line)
+        
+        return jsonify({'success': True, 'servers': servers})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/servers', methods=['POST'])
+def update_servers():
+    """API endpoint to update server list in servers.txt file."""
+    config = Config()
+    server_list_path = config.SERVER_LIST_PATH
+    
+    try:
+        data = request.get_json()
+        servers = data.get('servers', [])
+        
+        # Ensure directory exists
+        os.makedirs(os.path.dirname(server_list_path), exist_ok=True)
+        
+        # Write servers to file
+        with open(server_list_path, 'w', encoding='utf-8') as f:
+            f.write('# Server list for certificate sync\n')
+            f.write('# Format: IP:PORT or IP (default port 22)\n\n')
+            for server in servers:
+                if server.strip():
+                    f.write(f"{server.strip()}\n")
+        
+        return jsonify({'success': True, 'message': 'Server list updated successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/sync', methods=['POST'])
 def sync():
     """Endpoint to trigger certificate sync with streaming logs."""
