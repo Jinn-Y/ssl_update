@@ -78,7 +78,6 @@
         }
 
         input[type="text"],
-        select,
         textarea {
             width: 100%;
             padding: 12px 16px;
@@ -91,16 +90,11 @@
         }
 
         input[type="text"]:focus,
-        select:focus,
         textarea:focus {
             outline: none;
             border-color: #667eea;
             background: white;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-        }
-
-        select {
-            cursor: pointer;
         }
 
         textarea {
@@ -174,21 +168,6 @@
             background: #cbd5e0;
             cursor: not-allowed;
             box-shadow: none;
-        }
-
-        .domain-selector {
-            display: flex;
-            gap: 10px;
-        }
-
-        .domain-selector select {
-            flex: 1;
-        }
-
-        .domain-selector button {
-            width: auto;
-            padding: 12px 20px;
-            font-size: 0.9rem;
         }
 
         .log-container {
@@ -293,13 +272,8 @@
         <form id="syncForm">
             <div class="form-group">
                 <label for="domain">域名 *</label>
-                <div class="domain-selector">
-                    <select id="domain" name="domain" required>
-                        <option value="">加载中...</option>
-                    </select>
-                    <button type="button" id="refreshDomains">🔄 刷新</button>
-                </div>
-                <div class="helper-text">从 ACME 证书目录自动检测到的域名</div>
+                <input type="text" id="domain" name="domain" placeholder="例如: example.com" required>
+                <div class="helper-text">请输入需要同步证书的域名</div>
             </div>
 
             <div class="form-group">
@@ -338,41 +312,6 @@
         const btnText = document.getElementById('btnText');
         const specificIpsGroup = document.getElementById('specificIpsGroup');
         const radioOptions = document.querySelectorAll('.radio-option');
-        const domainSelect = document.getElementById('domain');
-        const refreshDomainsBtn = document.getElementById('refreshDomains');
-
-        // Load available domains
-        async function loadDomains() {
-            try {
-                domainSelect.innerHTML = '<option value="">加载中...</option>';
-                const response = await fetch('/api/domains');
-                const data = await response.json();
-
-                if (data.success && data.domains.length > 0) {
-                    domainSelect.innerHTML = '<option value="">请选择域名</option>';
-                    data.domains.forEach(domain => {
-                        const option = document.createElement('option');
-                        option.value = domain;
-                        option.textContent = domain;
-                        domainSelect.appendChild(option);
-                    });
-                } else if (data.success && data.domains.length === 0) {
-                    domainSelect.innerHTML = '<option value="">未找到可用域名</option>';
-                } else {
-                    domainSelect.innerHTML = '<option value="">加载失败</option>';
-                    console.error('Failed to load domains:', data.error);
-                }
-            } catch (error) {
-                domainSelect.innerHTML = '<option value="">加载失败</option>';
-                console.error('Error loading domains:', error);
-            }
-        }
-
-        // Load domains on page load
-        loadDomains();
-
-        // Refresh button handler
-        refreshDomainsBtn.addEventListener('click', loadDomains);
 
         // Handle radio button styling
         document.querySelectorAll('input[name="target_mode"]').forEach(radio => {

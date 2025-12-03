@@ -1,13 +1,45 @@
-from flask import Flask, render_template, request, Response, stream_with_context
+from flask import Flask, render_template, request, Response, stream_with_context, jsonify
 import queue
 import threading
+import os
+import re
 from ssh_utils import SyncManager
+from config import Config
 
 app = Flask(__name__)
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/api/domains', methods=['GET'])
+def get_domains():
+    """API endpoint to get available domains from ACME certificate directory."""
+    config = Config()
+    acme_root = config.ACME_CERT_ROOT
+    domains = []
+    
+    try:
+        if os.path.exists(acme_root):
+            # List all directories in ACME root
+            for item in os.listdir(acme_root):
+                item_path = os.path.join(acme_root, item)
+                # Check if it's a directory and ends with _ecc
+                if os.path.isdir(item_path) and item.endswith('_ecc'):
+                    # Extract domain name (remove _ecc suffix)
+                    domain = item[:-4]  # Remove last 4 characters (_ecc)
+                    
+                    # Verify that certificate files exist
+                    cert_file = os.path.join(item_path, 'fullchain.cer')
+                    key_file = os.path.join(item_path, f'{domain}.key')
+                    
+                    if os.path.exists(cert_file) and os.path.exists(key_file):
+                        domains.append(domain)
+        
+        domains.sort()  # Sort alphabetically
+        return jsonify({'success': True, 'domains': domains})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/sync', methods=['POST'])
 def sync():
