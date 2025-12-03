@@ -38,10 +38,15 @@ def sync():
     def run_sync_task():
         """Run sync in background thread."""
         try:
-            sync_manager.run_sync(domain, targets, log_queue)
+            success = sync_manager.run_sync(domain, targets, log_queue)
+            if success:
+                log_queue.put("[SUCCESS]")
+            else:
+                log_queue.put("[FAILED]")
             log_queue.put("[DONE]")
         except Exception as e:
             log_queue.put(f"[ERROR] Exception: {str(e)}")
+            log_queue.put("[FAILED]")
             log_queue.put("[DONE]")
     
     # Start sync in background thread

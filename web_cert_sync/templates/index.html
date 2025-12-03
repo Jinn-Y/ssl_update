@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -38,6 +39,7 @@
                 opacity: 0;
                 transform: translateY(-30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -129,7 +131,7 @@
             height: 18px;
         }
 
-        .radio-option input[type="radio"]:checked + span {
+        .radio-option input[type="radio"]:checked+span {
             color: #667eea;
             font-weight: 600;
         }
@@ -188,8 +190,13 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
         }
 
         .log-line {
@@ -242,6 +249,7 @@
                 opacity: 0;
                 max-height: 0;
             }
+
             to {
                 opacity: 1;
                 max-height: 200px;
@@ -255,6 +263,7 @@
         }
     </style>
 </head>
+
 <body>
     <div class="container">
         <h1>🔐 证书同步管理系统</h1>
@@ -283,7 +292,8 @@
 
             <div class="form-group" id="specificIpsGroup">
                 <label for="specific_ips">服务器列表</label>
-                <textarea id="specific_ips" name="specific_ips" placeholder="每行一个服务器地址，格式: IP:PORT 或 IP&#10;例如:&#10;192.168.1.100:22&#10;192.168.1.101"></textarea>
+                <textarea id="specific_ips" name="specific_ips"
+                    placeholder="每行一个服务器地址，格式: IP:PORT 或 IP&#10;例如:&#10;192.168.1.100:22&#10;192.168.1.101"></textarea>
                 <div class="helper-text">每行一个服务器地址，端口可选（默认22）</div>
             </div>
 
@@ -305,10 +315,10 @@
 
         // Handle radio button styling
         document.querySelectorAll('input[name="target_mode"]').forEach(radio => {
-            radio.addEventListener('change', function() {
+            radio.addEventListener('change', function () {
                 radioOptions.forEach(opt => opt.classList.remove('selected'));
                 this.closest('.radio-option').classList.add('selected');
-                
+
                 if (this.value === 'specific') {
                     specificIpsGroup.style.display = 'block';
                 } else {
@@ -319,17 +329,17 @@
 
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const formData = new FormData(form);
-            
+
             // Clear previous logs
             logContainer.innerHTML = '';
             logContainer.classList.add('active');
-            
+
             // Disable submit button
             submitBtn.disabled = true;
             btnText.textContent = '同步中...';
-            
+
             try {
                 const response = await fetch('/sync', {
                     method: 'POST',
@@ -355,8 +365,12 @@
                     for (const line of lines) {
                         if (line.startsWith('data: ')) {
                             const message = line.substring(6);
-                            if (message === '[DONE]') {
-                                addLog('✓ 同步任务完成', 'done');
+                            if (message === '[SUCCESS]') {
+                                addLog('✓ 所有服务器同步成功！', 'done');
+                            } else if (message === '[FAILED]') {
+                                addLog('✗ 同步失败，部分服务器未能成功同步', 'error');
+                            } else if (message === '[DONE]') {
+                                // Task completed, no additional message needed
                             } else if (message !== '[KEEPALIVE]') {
                                 addLog(message);
                             }
@@ -380,4 +394,5 @@
         }
     </script>
 </body>
+
 </html>
