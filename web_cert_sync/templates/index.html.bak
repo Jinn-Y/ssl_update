@@ -29,7 +29,7 @@
             border-radius: 20px;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
             padding: 40px;
-            max-width: 900px;
+            max-width: 800px;
             width: 100%;
             animation: slideIn 0.5s ease-out;
         }
@@ -191,98 +191,6 @@
             font-size: 0.9rem;
         }
 
-        /* Server Table Styles */
-        .server-table-container {
-            border: 2px solid #e2e8f0;
-            border-radius: 10px;
-            overflow: hidden;
-            background: white;
-        }
-
-        .server-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .server-table thead {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-
-        .server-table th {
-            padding: 12px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 0.9rem;
-        }
-
-        .server-table tbody tr {
-            border-bottom: 1px solid #e2e8f0;
-            transition: background 0.2s ease;
-        }
-
-        .server-table tbody tr:hover {
-            background: #f7fafc;
-        }
-
-        .server-table tbody tr:last-child {
-            border-bottom: none;
-        }
-
-        .server-table td {
-            padding: 12px;
-        }
-
-        .server-table input[type="text"] {
-            width: 100%;
-            padding: 8px 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            font-size: 0.9rem;
-        }
-
-        .server-table input[type="text"]:focus {
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
-        }
-
-        .remove-btn {
-            background: #fc8181;
-            color: white;
-            border: none;
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            transition: all 0.2s ease;
-            width: auto;
-            box-shadow: none;
-        }
-
-        .remove-btn:hover {
-            background: #f56565;
-            transform: translateY(-1px);
-        }
-
-        .add-server-btn {
-            width: 100%;
-            margin-top: 10px;
-            background: #48bb78;
-            padding: 10px;
-            font-size: 0.95rem;
-        }
-
-        .add-server-btn:hover {
-            background: #38a169;
-        }
-
-        .empty-table-message {
-            text-align: center;
-            padding: 30px;
-            color: #718096;
-            font-size: 0.9rem;
-        }
-
         .log-container {
             margin-top: 30px;
             background: #1a202c;
@@ -365,7 +273,7 @@
 
             to {
                 opacity: 1;
-                max-height: 500px;
+                max-height: 200px;
             }
         }
 
@@ -409,29 +317,10 @@
             </div>
 
             <div class="form-group" id="specificIpsGroup">
-                <label>服务器列表</label>
-                <div class="server-table-container">
-                    <table class="server-table">
-                        <thead>
-                            <tr>
-                                <th style="width: 50%;">IP 地址</th>
-                                <th style="width: 30%;">端口</th>
-                                <th style="width: 20%;">操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="serverTableBody">
-                            <tr class="empty-row">
-                                <td colspan="3" class="empty-table-message">
-                                    暂无服务器，点击下方"添加服务器"按钮开始添加
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <button type="button" id="addServerBtn" class="add-server-btn">
-                    ➕ 添加服务器
-                </button>
-                <div class="helper-text">点击"添加服务器"按钮来添加要同步的服务器</div>
+                <label for="specific_ips">服务器列表</label>
+                <textarea id="specific_ips" name="specific_ips"
+                    placeholder="每行一个服务器地址，格式: IP:PORT 或 IP&#10;例如:&#10;192.168.1.100:22&#10;192.168.1.101"></textarea>
+                <div class="helper-text">每行一个服务器地址，端口可选（默认22）</div>
             </div>
 
             <button type="submit" id="submitBtn">
@@ -451,10 +340,6 @@
         const radioOptions = document.querySelectorAll('.radio-option');
         const domainSelect = document.getElementById('domain');
         const refreshDomainsBtn = document.getElementById('refreshDomains');
-        const serverTableBody = document.getElementById('serverTableBody');
-        const addServerBtn = document.getElementById('addServerBtn');
-
-        let serverCount = 0;
 
         // Load available domains
         async function loadDomains() {
@@ -483,66 +368,11 @@
             }
         }
 
-        // Add server row to table
-        function addServerRow(ip = '', port = '22') {
-            // Remove empty message if exists
-            const emptyRow = serverTableBody.querySelector('.empty-row');
-            if (emptyRow) {
-                emptyRow.remove();
-            }
-
-            serverCount++;
-            const row = document.createElement('tr');
-            row.innerHTML = `
-                <td><input type="text" class="server-ip" placeholder="例如: 192.168.1.100" value="${ip}" required></td>
-                <td><input type="text" class="server-port" placeholder="22" value="${port}"></td>
-                <td><button type="button" class="remove-btn" onclick="removeServerRow(this)">🗑️ 删除</button></td>
-            `;
-            serverTableBody.appendChild(row);
-        }
-
-        // Remove server row
-        window.removeServerRow = function (btn) {
-            const row = btn.closest('tr');
-            row.remove();
-            serverCount--;
-
-            // Show empty message if no servers
-            if (serverTableBody.children.length === 0) {
-                serverTableBody.innerHTML = `
-                    <tr class="empty-row">
-                        <td colspan="3" class="empty-table-message">
-                            暂无服务器，点击下方"添加服务器"按钮开始添加
-                        </td>
-                    </tr>
-                `;
-            }
-        };
-
-        // Get servers from table
-        function getServersFromTable() {
-            const servers = [];
-            const rows = serverTableBody.querySelectorAll('tr:not(.empty-row)');
-            rows.forEach(row => {
-                const ip = row.querySelector('.server-ip').value.trim();
-                const port = row.querySelector('.server-port').value.trim() || '22';
-                if (ip) {
-                    servers.push(`${ip}:${port}`);
-                }
-            });
-            return servers;
-        }
-
         // Load domains on page load
         loadDomains();
 
         // Refresh button handler
         refreshDomainsBtn.addEventListener('click', loadDomains);
-
-        // Add server button handler
-        addServerBtn.addEventListener('click', () => {
-            addServerRow();
-        });
 
         // Handle radio button styling
         document.querySelectorAll('input[name="target_mode"]').forEach(radio => {
@@ -561,19 +391,7 @@
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const formData = new FormData();
-            formData.append('domain', domainSelect.value);
-            formData.append('target_mode', document.querySelector('input[name="target_mode"]:checked').value);
-
-            // If specific mode, get servers from table
-            if (document.querySelector('input[name="target_mode"]:checked').value === 'specific') {
-                const servers = getServersFromTable();
-                if (servers.length === 0) {
-                    alert('请至少添加一个服务器');
-                    return;
-                }
-                formData.append('specific_ips', servers.join('\n'));
-            }
+            const formData = new FormData(form);
 
             // Clear previous logs
             logContainer.innerHTML = '';
