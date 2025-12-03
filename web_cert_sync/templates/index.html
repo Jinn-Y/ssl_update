@@ -78,8 +78,7 @@
         }
 
         input[type="text"],
-        select,
-        textarea {
+        select {
             width: 100%;
             padding: 12px 16px;
             border: 2px solid #e2e8f0;
@@ -91,8 +90,7 @@
         }
 
         input[type="text"]:focus,
-        select:focus,
-        textarea:focus {
+        select:focus {
             outline: none;
             border-color: #667eea;
             background: white;
@@ -101,11 +99,6 @@
 
         select {
             cursor: pointer;
-        }
-
-        textarea {
-            resize: vertical;
-            min-height: 100px;
         }
 
         .radio-group {
@@ -197,6 +190,7 @@
             border-radius: 10px;
             overflow: hidden;
             background: white;
+            margin-bottom: 10px;
         }
 
         .server-table {
@@ -246,6 +240,12 @@
             box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
         }
 
+        .server-table input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+        }
+
         .remove-btn {
             background: #fc8181;
             color: white;
@@ -266,14 +266,25 @@
 
         .add-server-btn {
             width: 100%;
-            margin-top: 10px;
             background: #48bb78;
             padding: 10px;
             font-size: 0.95rem;
+            margin-bottom: 10px;
         }
 
         .add-server-btn:hover {
             background: #38a169;
+        }
+
+        .save-servers-btn {
+            width: 100%;
+            background: #4299e1;
+            padding: 10px;
+            font-size: 0.95rem;
+        }
+
+        .save-servers-btn:hover {
+            background: #3182ce;
         }
 
         .empty-table-message {
@@ -281,6 +292,15 @@
             padding: 30px;
             color: #718096;
             font-size: 0.9rem;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .button-group button {
+            flex: 1;
         }
 
         .log-container {
@@ -352,27 +372,21 @@
             background: #667eea;
         }
 
-        #specificIpsGroup {
-            display: none;
-            animation: slideDown 0.3s ease-out;
-        }
-
-        @keyframes slideDown {
-            from {
-                opacity: 0;
-                max-height: 0;
-            }
-
-            to {
-                opacity: 1;
-                max-height: 500px;
-            }
+        #serverManagement {
+            display: block;
         }
 
         .helper-text {
             font-size: 0.85rem;
             color: #718096;
             margin-top: 6px;
+        }
+
+        .mode-specific-header {
+            font-size: 0.85rem;
+            color: #667eea;
+            margin-bottom: 8px;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -408,30 +422,38 @@
                 </div>
             </div>
 
-            <div class="form-group" id="specificIpsGroup">
-                <label>服务器列表</label>
+            <div class="form-group" id="serverManagement">
+                <div class="mode-specific-header" id="modeHeader">管理全局服务器列表</div>
                 <div class="server-table-container">
                     <table class="server-table">
                         <thead>
                             <tr>
-                                <th style="width: 50%;">IP 地址</th>
-                                <th style="width: 30%;">端口</th>
+                                <th style="width: 10%;" id="selectColumn">选择</th>
+                                <th style="width: 45%;">IP 地址</th>
+                                <th style="width: 25%;">端口</th>
                                 <th style="width: 20%;">操作</th>
                             </tr>
                         </thead>
                         <tbody id="serverTableBody">
                             <tr class="empty-row">
-                                <td colspan="3" class="empty-table-message">
-                                    暂无服务器，点击下方"添加服务器"按钮开始添加
+                                <td colspan="4" class="empty-table-message">
+                                    正在加载服务器列表...
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-                <button type="button" id="addServerBtn" class="add-server-btn">
-                    ➕ 添加服务器
-                </button>
-                <div class="helper-text">点击"添加服务器"按钮来添加要同步的服务器</div>
+                <div class="button-group">
+                    <button type="button" id="addServerBtn" class="add-server-btn">
+                        ➕ 添加服务器
+                    </button>
+                    <button type="button" id="saveServersBtn" class="save-servers-btn">
+                        💾 保存列表
+                    </button>
+                </div>
+                <div class="helper-text" id="helperText">
+                    管理全局服务器列表，点击"保存列表"将更改写入 servers.txt
+                </div>
             </div>
 
             <button type="submit" id="submitBtn">
@@ -447,13 +469,18 @@
         const logContainer = document.getElementById('logContainer');
         const submitBtn = document.getElementById('submitBtn');
         const btnText = document.getElementById('btnText');
-        const specificIpsGroup = document.getElementById('specificIpsGroup');
+        const serverManagement = document.getElementById('serverManagement');
         const radioOptions = document.querySelectorAll('.radio-option');
         const domainSelect = document.getElementById('domain');
         const refreshDomainsBtn = document.getElementById('refreshDomains');
         const serverTableBody = document.getElementById('serverTableBody');
         const addServerBtn = document.getElementById('addServerBtn');
+        const saveServersBtn = document.getElementById('saveServersBtn');
+        const modeHeader = document.getElementById('modeHeader');
+        const helperText = document.getElementById('helperText');
+        const selectColumn = document.getElementById('selectColumn');
 
+        let currentMode = 'all';
         let serverCount = 0;
 
         // Load available domains
@@ -483,9 +510,41 @@
             }
         }
 
+        // Load servers from API
+        async function loadServers() {
+            try {
+                const response = await fetch('/api/servers');
+                const data = await response.json();
+
+                serverTableBody.innerHTML = '';
+
+                if (data.success && data.servers.length > 0) {
+                    data.servers.forEach(server => {
+                        const parts = server.split(':');
+                        const ip = parts[0];
+                        const port = parts[1] || '22';
+                        addServerRow(ip, port, false);
+                    });
+                } else {
+                    showEmptyMessage();
+                }
+            } catch (error) {
+                console.error('Error loading servers:', error);
+                showEmptyMessage('加载失败，请刷新页面重试');
+            }
+        }
+
+        // Show empty table message
+        function showEmptyMessage(message = '暂无服务器，点击"添加服务器"按钮开始添加') {
+            serverTableBody.innerHTML = `
+                <tr class="empty-row">
+                    <td colspan="4" class="empty-table-message">${message}</td>
+                </tr>
+            `;
+        }
+
         // Add server row to table
-        function addServerRow(ip = '', port = '22') {
-            // Remove empty message if exists
+        function addServerRow(ip = '', port = '22', isNew = true) {
             const emptyRow = serverTableBody.querySelector('.empty-row');
             if (emptyRow) {
                 emptyRow.remove();
@@ -493,7 +552,12 @@
 
             serverCount++;
             const row = document.createElement('tr');
+            const checkboxHtml = currentMode === 'specific'
+                ? `<td><input type="checkbox" class="server-checkbox" ${isNew ? 'checked' : ''}></td>`
+                : '<td></td>';
+
             row.innerHTML = `
+                ${checkboxHtml}
                 <td><input type="text" class="server-ip" placeholder="例如: 192.168.1.100" value="${ip}" required></td>
                 <td><input type="text" class="server-port" placeholder="22" value="${port}"></td>
                 <td><button type="button" class="remove-btn" onclick="removeServerRow(this)">🗑️ 删除</button></td>
@@ -507,20 +571,13 @@
             row.remove();
             serverCount--;
 
-            // Show empty message if no servers
             if (serverTableBody.children.length === 0) {
-                serverTableBody.innerHTML = `
-                    <tr class="empty-row">
-                        <td colspan="3" class="empty-table-message">
-                            暂无服务器，点击下方"添加服务器"按钮开始添加
-                        </td>
-                    </tr>
-                `;
+                showEmptyMessage();
             }
         };
 
-        // Get servers from table
-        function getServersFromTable() {
+        // Get all servers from table
+        function getAllServers() {
             const servers = [];
             const rows = serverTableBody.querySelectorAll('tr:not(.empty-row)');
             rows.forEach(row => {
@@ -533,43 +590,116 @@
             return servers;
         }
 
-        // Load domains on page load
+        // Get selected servers (for specific mode)
+        function getSelectedServers() {
+            const servers = [];
+            const rows = serverTableBody.querySelectorAll('tr:not(.empty-row)');
+            rows.forEach(row => {
+                const checkbox = row.querySelector('.server-checkbox');
+                if (checkbox && checkbox.checked) {
+                    const ip = row.querySelector('.server-ip').value.trim();
+                    const port = row.querySelector('.server-port').value.trim() || '22';
+                    if (ip) {
+                        servers.push(`${ip}:${port}`);
+                    }
+                }
+            });
+            return servers;
+        }
+
+        // Save servers to file
+        async function saveServers() {
+            const servers = getAllServers();
+
+            try {
+                const response = await fetch('/api/servers', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ servers })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    alert('✓ 服务器列表已保存到 servers.txt');
+                } else {
+                    alert('✗ 保存失败: ' + data.error);
+                }
+            } catch (error) {
+                alert('✗ 保存失败: ' + error.message);
+            }
+        }
+
+        // Update UI based on mode
+        function updateModeUI(mode) {
+            currentMode = mode;
+
+            if (mode === 'all') {
+                modeHeader.textContent = '管理全局服务器列表';
+                helperText.textContent = '管理全局服务器列表，点击"保存列表"将更改写入 servers.txt';
+                selectColumn.textContent = '';
+                saveServersBtn.style.display = 'block';
+
+                // Remove checkboxes
+                const rows = serverTableBody.querySelectorAll('tr:not(.empty-row)');
+                rows.forEach(row => {
+                    const firstTd = row.querySelector('td:first-child');
+                    firstTd.innerHTML = '';
+                });
+            } else {
+                modeHeader.textContent = '从列表中选择要同步的服务器';
+                helperText.textContent = '勾选要同步的服务器，修改不会保存到文件';
+                selectColumn.textContent = '选择';
+                saveServersBtn.style.display = 'none';
+
+                // Add checkboxes
+                const rows = serverTableBody.querySelectorAll('tr:not(.empty-row)');
+                rows.forEach(row => {
+                    const firstTd = row.querySelector('td:first-child');
+                    firstTd.innerHTML = '<input type="checkbox" class="server-checkbox" checked>';
+                });
+            }
+        }
+
+        // Load domains and servers on page load
         loadDomains();
+        loadServers();
 
         // Refresh button handler
         refreshDomainsBtn.addEventListener('click', loadDomains);
 
         // Add server button handler
         addServerBtn.addEventListener('click', () => {
-            addServerRow();
+            addServerRow('', '22', true);
         });
 
-        // Handle radio button styling
+        // Save servers button handler
+        saveServersBtn.addEventListener('click', saveServers);
+
+        // Handle radio button change
         document.querySelectorAll('input[name="target_mode"]').forEach(radio => {
             radio.addEventListener('change', function () {
                 radioOptions.forEach(opt => opt.classList.remove('selected'));
                 this.closest('.radio-option').classList.add('selected');
-
-                if (this.value === 'specific') {
-                    specificIpsGroup.style.display = 'block';
-                } else {
-                    specificIpsGroup.style.display = 'none';
-                }
+                updateModeUI(this.value);
             });
         });
 
+        // Form submit handler
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             const formData = new FormData();
             formData.append('domain', domainSelect.value);
-            formData.append('target_mode', document.querySelector('input[name="target_mode"]:checked').value);
+            formData.append('target_mode', currentMode);
 
-            // If specific mode, get servers from table
-            if (document.querySelector('input[name="target_mode"]:checked').value === 'specific') {
-                const servers = getServersFromTable();
+            // If specific mode, get selected servers
+            if (currentMode === 'specific') {
+                const servers = getSelectedServers();
                 if (servers.length === 0) {
-                    alert('请至少添加一个服务器');
+                    alert('请至少选择一个服务器');
                     return;
                 }
                 formData.append('specific_ips', servers.join('\n'));
@@ -613,7 +743,7 @@
                             } else if (message === '[FAILED]') {
                                 addLog('✗ 同步失败，部分服务器未能成功同步', 'error');
                             } else if (message === '[DONE]') {
-                                // Task completed, no additional message needed
+                                // Task completed
                             } else if (message !== '[KEEPALIVE]') {
                                 addLog(message);
                             }
