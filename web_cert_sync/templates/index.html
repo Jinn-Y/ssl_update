@@ -642,12 +642,8 @@
                 selectColumn.textContent = '';
                 saveServersBtn.style.display = 'block';
 
-                // Remove checkboxes
-                const rows = serverTableBody.querySelectorAll('tr:not(.empty-row)');
-                rows.forEach(row => {
-                    const firstTd = row.querySelector('td:first-child');
-                    firstTd.innerHTML = '';
-                });
+                // Reload servers from file
+                loadServers();
             } else {
                 modeHeader.textContent = '手动添加要同步的服务器';
                 helperText.textContent = '临时添加服务器进行同步，不会保存到文件';
