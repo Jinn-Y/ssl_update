@@ -649,17 +649,14 @@
                     firstTd.innerHTML = '';
                 });
             } else {
-                modeHeader.textContent = '从列表中选择要同步的服务器';
-                helperText.textContent = '勾选要同步的服务器，修改不会保存到文件';
-                selectColumn.textContent = '选择';
+                modeHeader.textContent = '手动添加要同步的服务器';
+                helperText.textContent = '临时添加服务器进行同步，不会保存到文件';
+                selectColumn.textContent = '';
                 saveServersBtn.style.display = 'none';
 
-                // Add checkboxes
-                const rows = serverTableBody.querySelectorAll('tr:not(.empty-row)');
-                rows.forEach(row => {
-                    const firstTd = row.querySelector('td:first-child');
-                    firstTd.innerHTML = '<input type="checkbox" class="server-checkbox" checked>';
-                });
+                // Clear table for manual input
+                serverTableBody.innerHTML = '';
+                showEmptyMessage();
             }
         }
 
