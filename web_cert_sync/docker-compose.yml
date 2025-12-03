@@ -12,7 +12,7 @@ services:
       # 挂载 ACME 证书目录
       - /root/.acme.sh:/root/.acme.sh:ro
       # 挂载服务器列表文件
-      - /export0/shell/scp_cert/servers.txt:/app/servers.txt:ro
+      - /export0/shell/scp_cert/servers.txt:/app/servers.txt
       # 挂载环境配置文件
       - ./.env:/app/.env:ro
     environment:

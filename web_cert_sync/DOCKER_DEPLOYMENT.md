@@ -46,9 +46,9 @@ docker-compose.yml 中已配置以下卷挂载：
    - 证书文件所在目录
    - 只读模式
 
-3. **服务器列表**: `/export0/shell/scp_cert/servers.txt:/app/servers.txt:ro`
+3. **服务器列表**: `/export0/shell/scp_cert/servers.txt:/app/servers.txt`
    - 目标服务器列表
-   - 只读模式
+   - **必须可读写** (不要加 :ro)
 
 ### 端口映射
 
