@@ -142,10 +142,10 @@ class SyncManager:
             logger.warning(msg)
             if log_queue:
                 log_queue.put(f"[WARN] {msg}")
-            return False
+            return False, failed_hosts
         else:
             msg = "All servers synced successfully!"
             logger.info(msg)
             if log_queue:
                 log_queue.put(f"[INFO] {msg}")
-            return True
+            return True, []

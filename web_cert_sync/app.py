@@ -114,11 +114,13 @@ def sync():
     def run_sync_task():
         """Run sync in background thread."""
         try:
-            success = sync_manager.run_sync(domain, targets, log_queue)
+            success, failed_hosts = sync_manager.run_sync(domain, targets, log_queue)
             if success:
                 log_queue.put("[SUCCESS]")
             else:
-                log_queue.put("[FAILED]")
+                # Send failed hosts as part of the FAILED message
+                failed_str = ", ".join(failed_hosts) if failed_hosts else "Unknown"
+                log_queue.put(f"[FAILED] {failed_str}")
             log_queue.put("[DONE]")
         except Exception as e:
             log_queue.put(f"[ERROR] Exception: {str(e)}")
