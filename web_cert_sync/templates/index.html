@@ -479,7 +479,6 @@
         const modeHeader = document.getElementById('modeHeader');
         const helperText = document.getElementById('helperText');
         const selectColumn = document.getElementById('selectColumn');
-
         let currentMode = 'all';
         let serverCount = 0;
 
@@ -492,12 +491,34 @@
 
                 if (data.success && data.domains.length > 0) {
                     domainSelect.innerHTML = '<option value="">请选择域名</option>';
-                    data.domains.forEach(domain => {
+
+                    // Process each domain
+                    for (const domain of data.domains) {
                         const option = document.createElement('option');
                         option.value = domain;
-                        option.textContent = domain;
+
+                        // Fetch cert info
+                        try {
+                            const certRes = await fetch(`/api/cert_info/${domain}`);
+                            const certData = await certRes.json();
+                            if (certData.success) {
+                                let label = `${domain} (剩余 ${certData.days_left} 天)`;
+                                if (certData.days_left < 30) {
+                                    label = `⚠️ ${label}`;
+                                    option.style.color = 'red';
+                                    option.style.fontWeight = 'bold';
+                                }
+                                option.textContent = label;
+                            } else {
+                                option.textContent = domain;
+                            }
+                        } catch (e) {
+                            console.warn(`Failed to fetch info for ${domain}`, e);
+                            option.textContent = domain;
+                        }
+
                         domainSelect.appendChild(option);
-                    });
+                    }
                 } else if (data.success && data.domains.length === 0) {
                     domainSelect.innerHTML = '<option value="">未找到可用域名</option>';
                 } else {

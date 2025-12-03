@@ -52,7 +52,7 @@ class SyncManager:
         port = int(parts[1]) if len(parts) > 1 else self.config.SSH_PORT_DEFAULT
         
         canonical_line = f"{host}:{port}"
-        remote_dir = f"{self.config.REMOTE_DIR_BASE}/{domain}_ecc"
+        remote_dir = f"{self.config.REMOTE_DIR_BASE}/{domain}{self.config.CERT_DIR_SUFFIX}"
         
         log(f"Starting sync to {canonical_line} ...")
 
@@ -61,6 +61,10 @@ class SyncManager:
             log(f"[Dry Run] Would connect to {host}:{port} as {self.config.REMOTE_USER}")
             log(f"[Dry Run] Would mkdir -p {remote_dir}")
             log(f"[Dry Run] Would scp {cert_file} and {key_file} to {remote_dir}")
+            
+            if self.config.POST_SYNC_CMD:
+                log(f"[Dry Run] Would execute post-sync command: {self.config.POST_SYNC_CMD}")
+                
             log(f"Successfully synced to {canonical_line} (Dry Run)")
             return True
 
@@ -87,6 +91,17 @@ class SyncManager:
             sftp.put(key_file, f"{remote_dir}/{domain}.key")
             sftp.close()
             
+            # 3. Execute Post-Sync Command
+            if self.config.POST_SYNC_CMD:
+                log(f"Executing post-sync command: {self.config.POST_SYNC_CMD}")
+                stdin, stdout, stderr = ssh.exec_command(self.config.POST_SYNC_CMD, timeout=self.config.SSH_EXEC_TIMEOUT)
+                exit_status = stdout.channel.recv_exit_status()
+                if exit_status != 0:
+                    err = stderr.read().decode().strip()
+                    log(f"Post-sync command failed on {canonical_line}: {err}", "WARN")
+                else:
+                    log(f"Post-sync command executed successfully")
+            
             ssh.close()
             log(f"Successfully synced to {canonical_line}")
             return True
@@ -100,7 +115,7 @@ class SyncManager:
         Orchestrates the sync process.
         targets: List of server strings (e.g., ["1.1.1.1", "2.2.2.2:2222"])
         """
-        cert_dir = f"{self.config.ACME_CERT_ROOT}/{domain}_ecc"
+        cert_dir = f"{self.config.ACME_CERT_ROOT}/{domain}{self.config.CERT_DIR_SUFFIX}"
         cert_file = f"{cert_dir}/fullchain.cer"
         key_file = f"{cert_dir}/{domain}.key"
 
