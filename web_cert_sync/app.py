@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, Response, stream_with_context, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, Response, stream_with_context, jsonify, session, redirect, url_for, send_file
 import queue
 import threading
 import os
@@ -18,6 +18,7 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'default-secret-key-change-in-production')
+FAVICON_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'secret.png')
 
 # Auth Helper
 def check_auth(username, password):
@@ -166,6 +167,16 @@ def is_valid_ip_or_domain(target):
 @requires_auth
 def index():
     return render_template('index.html')
+
+
+@app.route('/favicon.png')
+def favicon_png():
+    return send_file(FAVICON_PATH, mimetype='image/png')
+
+
+@app.route('/favicon.ico')
+def favicon_ico():
+    return send_file(FAVICON_PATH, mimetype='image/png')
 
 @app.route('/api/domains', methods=['GET'])
 @requires_auth
