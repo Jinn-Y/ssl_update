@@ -16,6 +16,9 @@
             --muted: #6e6e73;
             --heading: #111113;
             --line: rgba(29, 29, 31, 0.08);
+            --surface-glass: rgba(255, 255, 255, 0.34);
+            --surface-input: rgba(255, 255, 255, 0.72);
+            --card-border: rgba(255, 255, 255, 0.88);
             --panel: rgba(255, 255, 255, 0.76);
             --panel-strong: rgba(255, 255, 255, 0.92);
             --primary: #0071e3;
@@ -35,6 +38,9 @@
                 --muted: #bcc3cf;
                 --heading: #ffffff;
                 --line: rgba(255, 255, 255, 0.1);
+                --surface-glass: rgba(255, 255, 255, 0.04);
+                --surface-input: rgba(255, 255, 255, 0.05);
+                --card-border: rgba(255, 255, 255, 0.08);
                 --panel: rgba(24, 24, 28, 0.78);
                 --panel-strong: rgba(32, 33, 38, 0.94);
                 --primary: #2997ff;
@@ -54,6 +60,9 @@
             --muted: #6e6e73;
             --heading: #111113;
             --line: rgba(29, 29, 31, 0.08);
+            --surface-glass: rgba(255, 255, 255, 0.34);
+            --surface-input: rgba(255, 255, 255, 0.72);
+            --card-border: rgba(255, 255, 255, 0.88);
             --panel: rgba(255, 255, 255, 0.76);
             --panel-strong: rgba(255, 255, 255, 0.92);
             --primary: #0071e3;
@@ -72,6 +81,9 @@
             --muted: #bcc3cf;
             --heading: #ffffff;
             --line: rgba(255, 255, 255, 0.1);
+            --surface-glass: rgba(255, 255, 255, 0.04);
+            --surface-input: rgba(255, 255, 255, 0.05);
+            --card-border: rgba(255, 255, 255, 0.08);
             --panel: rgba(24, 24, 28, 0.78);
             --panel-strong: rgba(32, 33, 38, 0.94);
             --primary: #2997ff;
@@ -112,7 +124,7 @@
         .hero,
         .panel {
             border-radius: 32px;
-            border: 1px solid var(--line);
+            border: 1px solid var(--card-border);
             backdrop-filter: blur(26px);
             box-shadow: var(--shadow);
             overflow: hidden;
@@ -163,14 +175,8 @@
         .hero-item {
             padding: 14px 16px;
             border-radius: 22px;
-            background: rgba(255, 255, 255, 0.34);
+            background: var(--surface-glass);
             border: 1px solid var(--line);
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .hero-item {
-                background: rgba(255, 255, 255, 0.03);
-            }
         }
 
         .hero-item strong {
@@ -194,15 +200,9 @@
             border: 1px solid var(--line);
             border-radius: 999px;
             padding: 10px 14px;
-            background: rgba(255, 255, 255, 0.72);
+            background: var(--surface-input);
             color: var(--text);
             font: inherit;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            .theme-select {
-                background: rgba(255, 255, 255, 0.04);
-            }
         }
 
         .panel {
@@ -242,16 +242,10 @@
             border: 1px solid var(--line);
             border-radius: 18px;
             padding: 14px 16px;
-            background: rgba(255, 255, 255, 0.72);
+            background: var(--surface-input);
             color: var(--text);
             font: inherit;
             transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            input {
-                background: rgba(255, 255, 255, 0.04);
-            }
         }
 
         input:focus {
