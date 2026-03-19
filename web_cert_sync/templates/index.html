@@ -1,429 +1,295 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>证书同步管理系统</title>
+    <title>证书同步管理</title>
     <style>
         :root {
-            --bg: linear-gradient(135deg, #0f172a 0%, #1d4ed8 45%, #d97706 100%);
-            --panel: rgba(255, 255, 255, 0.96);
-            --text: #172033;
-            --muted: #5f6b85;
-            --line: #d8deea;
-            --primary: #1d4ed8;
-            --primary-dark: #163ea8;
-            --success: #15803d;
-            --danger: #b91c1c;
-            --warning: #b45309;
+            --bg: #f5f5f7;
+            --bg-soft: #fbfbfd;
+            --panel: rgba(255, 255, 255, 0.8);
+            --panel-strong: rgba(255, 255, 255, 0.92);
+            --text: #1d1d1f;
+            --muted: #6e6e73;
+            --line: rgba(29, 29, 31, 0.08);
+            --primary: #0071e3;
+            --primary-hover: #0077ed;
+            --success: #1d9a52;
+            --danger: #d93025;
+            --neutral: #8e8e93;
+            --shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
         }
 
-        * {
-            box-sizing: border-box;
-        }
+        * { box-sizing: border-box; }
 
         body {
             margin: 0;
-            font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-            color: var(--text);
-            background: var(--bg);
             min-height: 100vh;
             padding: 24px;
-        }
-
-        .shell {
-            max-width: 1160px;
-            margin: 0 auto;
-            background: var(--panel);
-            border-radius: 24px;
-            box-shadow: 0 24px 80px rgba(15, 23, 42, 0.35);
-            overflow: hidden;
-        }
-
-        .hero {
-            padding: 28px 32px 18px;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
+            color: var(--text);
             background:
-                radial-gradient(circle at top right, rgba(255, 255, 255, 0.24), transparent 30%),
-                linear-gradient(135deg, #0f172a, #1e3a8a 68%, #b45309);
-            color: #fff;
+                radial-gradient(circle at top left, rgba(0, 113, 227, 0.12), transparent 28%),
+                radial-gradient(circle at top right, rgba(255, 159, 10, 0.10), transparent 24%),
+                linear-gradient(180deg, #fbfbfd 0%, #f1f1f4 100%);
         }
 
+        .page { max-width: 1280px; margin: 0 auto; }
+        .hero { padding: 36px 8px 30px; text-align: center; }
+        .eyebrow {
+            display: inline-block; padding: 8px 14px; border-radius: 999px;
+            background: rgba(0, 113, 227, 0.08); color: var(--primary); font-size: 0.9rem; font-weight: 600;
+        }
         .hero h1 {
-            margin: 0;
-            font-size: 2rem;
+            margin: 18px 0 12px; font-size: clamp(2.5rem, 5vw, 4.4rem); line-height: 1.04;
+            letter-spacing: -0.04em; font-weight: 700;
         }
-
-        .hero p {
-            margin: 10px 0 0;
-            color: rgba(255, 255, 255, 0.85);
+        .hero p { max-width: 760px; margin: 0 auto; color: var(--muted); font-size: 1.05rem; line-height: 1.7; }
+        .hero-stats { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 26px; }
+        .stat-pill {
+            min-width: 150px; padding: 12px 18px; border-radius: 18px; background: rgba(255,255,255,0.72);
+            border: 1px solid rgba(255,255,255,0.9); backdrop-filter: blur(18px); box-shadow: 0 10px 30px rgba(15,23,42,0.06);
         }
+        .stat-pill strong { display: block; }
+        .stat-pill span { display: block; margin-top: 4px; color: var(--muted); font-size: 0.88rem; }
 
-        .content {
-            padding: 28px 32px 32px;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: 1.2fr 1fr;
-            gap: 20px;
-            align-items: start;
-        }
-
+        .grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 22px; align-items: start; }
         .card {
-            border: 1px solid var(--line);
-            border-radius: 18px;
-            padding: 20px;
-            background: #fff;
+            background: var(--panel); border: 1px solid rgba(255,255,255,0.88); border-radius: 28px;
+            box-shadow: var(--shadow); backdrop-filter: blur(28px); overflow: hidden;
         }
+        .card-head { padding: 22px 24px 12px; }
+        .card-body { padding: 0 24px 24px; }
+        .card-title { margin: 0; font-size: 1.35rem; letter-spacing: -0.02em; }
+        .card-subtitle { margin: 8px 0 0; color: var(--muted); line-height: 1.6; font-size: 0.95rem; }
+        .section { margin-top: 22px; }
 
-        .card h2 {
-            margin: 0 0 14px;
-            font-size: 1.1rem;
+        .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+        .field label { font-size: 0.92rem; font-weight: 600; }
+        .field-hint { color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
+        .row, .row-3 { display: grid; gap: 14px; }
+        .row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .row-3 { grid-template-columns: 1.2fr 0.7fr 1fr; }
+
+        input, select, textarea, button { font: inherit; }
+        input, select, textarea {
+            width: 100%; border: 1px solid var(--line); border-radius: 16px; padding: 13px 15px;
+            background: rgba(255,255,255,0.84); color: var(--text);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
         }
-
-        .muted {
-            color: var(--muted);
-            font-size: 0.92rem;
-        }
-
-        .form-row {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 14px;
-            margin-bottom: 14px;
-        }
-
-        .form-row.three {
-            grid-template-columns: 1.2fr 0.7fr 1fr;
-        }
-
-        .field {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .field label {
-            font-size: 0.92rem;
-            font-weight: 700;
-        }
-
-        input,
-        select,
-        textarea,
-        button {
-            font: inherit;
-        }
-
-        input,
-        select,
-        textarea {
-            width: 100%;
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            padding: 11px 12px;
-            background: #f8fafc;
-            color: var(--text);
-        }
-
-        textarea {
-            min-height: 120px;
-            resize: vertical;
-        }
-
-        input:focus,
-        select:focus,
-        textarea:focus {
-            outline: 2px solid rgba(29, 78, 216, 0.18);
-            border-color: var(--primary);
-            background: #fff;
-        }
-
-        .button-row {
-            display: flex;
-            gap: 12px;
-            flex-wrap: wrap;
+        textarea { min-height: 136px; resize: vertical; }
+        input:focus, select:focus, textarea:focus {
+            outline: none; border-color: rgba(0, 113, 227, 0.4); box-shadow: 0 0 0 4px rgba(0, 113, 227, 0.10);
         }
 
         button {
-            border: none;
-            border-radius: 12px;
-            padding: 11px 16px;
-            cursor: pointer;
-            transition: 0.2s ease;
+            border: none; border-radius: 999px; padding: 12px 18px; font-weight: 600; cursor: pointer;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
         }
+        button:hover:not(:disabled) { transform: translateY(-1px); }
+        button:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+        .btn-row { display: flex; gap: 12px; flex-wrap: wrap; }
+        .btn-primary { background: var(--primary); color: #fff; box-shadow: 0 10px 24px rgba(0, 113, 227, 0.22); }
+        .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-secondary { background: rgba(29, 29, 31, 0.06); color: var(--text); }
+        .btn-secondary:hover:not(:disabled) { background: rgba(29, 29, 31, 0.1); }
+        .btn-danger { background: rgba(217, 48, 37, 0.1); color: var(--danger); }
 
-        button:hover {
-            transform: translateY(-1px);
-        }
-
-        .primary-btn {
-            background: var(--primary);
-            color: #fff;
-        }
-
-        .primary-btn:hover {
-            background: var(--primary-dark);
-        }
-
-        .secondary-btn {
-            background: #e2e8f0;
-            color: var(--text);
-        }
-
-        .success-btn {
-            background: var(--success);
-            color: #fff;
-        }
-
-        .danger-btn {
-            background: var(--danger);
-            color: #fff;
-        }
-
-        .warning-btn {
-            background: var(--warning);
-            color: #fff;
-        }
-
-        .radio-row {
-            display: flex;
-            gap: 12px;
-            margin-top: 8px;
-        }
-
+        .radio-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .radio-option {
-            flex: 1;
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            padding: 12px 14px;
-            background: #f8fafc;
+            display: flex; gap: 10px; align-items: flex-start; padding: 18px; border-radius: 20px;
+            background: rgba(255,255,255,0.72); border: 1px solid rgba(29,29,31,0.08);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
         }
+        .radio-option.active { border-color: rgba(0,113,227,0.28); box-shadow: 0 12px 24px rgba(0,113,227,0.08); transform: translateY(-1px); }
+        .radio-option input { width: auto; margin-top: 3px; }
+        .radio-title { display: block; font-weight: 600; margin-bottom: 4px; }
+        .radio-copy { display: block; color: var(--muted); font-size: 0.88rem; line-height: 1.5; }
 
-        .radio-option.active {
-            border-color: rgba(29, 78, 216, 0.35);
-            background: rgba(29, 78, 216, 0.06);
+        .toolbar, .stats-row, .pagination {
+            display: flex; justify-content: space-between; gap: 12px; align-items: end; flex-wrap: wrap;
         }
+        .toolbar { margin-bottom: 14px; }
+        .toolbar .field { margin-bottom: 0; flex: 1; min-width: 220px; }
+        .stats-row { margin-bottom: 16px; align-items: center; }
+        .stats { color: var(--muted); font-size: 0.92rem; }
 
-        .radio-option input {
-            width: auto;
-            margin-right: 8px;
+        .table-wrap { overflow-x: auto; border: 1px solid rgba(29,29,31,0.06); border-radius: 22px; background: var(--panel-strong); }
+        table { width: 100%; border-collapse: collapse; }
+        thead { background: rgba(255,255,255,0.84); }
+        th, td {
+            padding: 16px 14px; border-bottom: 1px solid rgba(29,29,31,0.06);
+            text-align: left; vertical-align: middle; white-space: nowrap;
         }
+        th { font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+        tbody tr:hover { background: rgba(255,255,255,0.75); }
+        .table-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
-        .toolbar {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 14px;
-            flex-wrap: wrap;
+        .chip { display: inline-flex; align-items: center; border-radius: 999px; padding: 7px 12px; font-size: 0.78rem; font-weight: 600; }
+        .chip.enabled { background: rgba(29,154,82,0.14); color: var(--success); }
+        .chip.disabled { background: rgba(217,48,37,0.14); color: var(--danger); }
+
+        .sync-btn { min-width: 104px; background: #eef0f3; color: #515154; box-shadow: inset 0 0 0 1px rgba(29,29,31,0.05); }
+        .sync-btn:hover:not(:disabled) { background: #e6e8ed; }
+        .sync-btn.running { background: rgba(0,113,227,0.12); color: var(--primary); }
+        .sync-btn.success { background: rgba(29,154,82,0.14); color: var(--success); }
+        .sync-btn.error { background: rgba(217,48,37,0.14); color: var(--danger); }
+
+        .message { display: none; margin-top: 18px; padding: 14px 16px; border-radius: 18px; font-size: 0.92rem; }
+        .message.visible { display: block; }
+        .message.success { background: rgba(29,154,82,0.14); color: var(--success); }
+        .message.error { background: rgba(217,48,37,0.14); color: var(--danger); }
+        .hidden { display: none; }
+
+        .log-shell {
+            margin-top: 18px; border-radius: 24px; overflow: hidden; background: var(--bg-soft);
+            border: 1px solid rgba(29,29,31,0.06); display: none;
         }
-
-        .toolbar .field {
-            min-width: 220px;
-            flex: 1;
+        .log-shell.active { display: block; }
+        .log-head {
+            display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 16px 18px;
+            border-bottom: 1px solid rgba(29,29,31,0.06); background: rgba(255,255,255,0.74);
         }
-
-        .stats {
-            color: var(--muted);
-            font-size: 0.9rem;
+        .log-title { font-weight: 600; }
+        .log-meta { color: var(--muted); font-size: 0.88rem; margin-top: 4px; }
+        .log-status {
+            display: inline-flex; align-items: center; border-radius: 999px; padding: 8px 12px;
+            font-size: 0.8rem; font-weight: 700; background: rgba(29,29,31,0.06); color: #515154;
         }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.95rem;
-        }
-
-        thead {
-            background: #eff6ff;
-        }
-
-        th,
-        td {
-            padding: 12px 10px;
-            border-bottom: 1px solid var(--line);
-            text-align: left;
-            vertical-align: top;
-        }
-
-        tbody tr:hover {
-            background: #f8fafc;
-        }
-
-        .table-actions {
-            display: flex;
-            gap: 8px;
-            flex-wrap: wrap;
-        }
-
-        .chip {
-            display: inline-block;
-            border-radius: 999px;
-            padding: 4px 10px;
-            font-size: 0.78rem;
-            font-weight: 700;
-        }
-
-        .chip.enabled {
-            background: rgba(21, 128, 61, 0.12);
-            color: var(--success);
-        }
-
-        .chip.disabled {
-            background: rgba(185, 28, 28, 0.12);
-            color: var(--danger);
-        }
-
-        .pagination {
-            display: flex;
-            justify-content: space-between;
-            gap: 12px;
-            align-items: center;
-            flex-wrap: wrap;
-            margin-top: 16px;
-        }
-
-        .log-container {
-            margin-top: 20px;
-            background: #0f172a;
-            color: #dbeafe;
-            border-radius: 18px;
-            padding: 16px;
-            max-height: 360px;
-            overflow-y: auto;
-            font-family: Consolas, "Courier New", monospace;
-            display: none;
-        }
-
-        .log-container.active {
-            display: block;
-        }
-
+        .log-status.running { background: rgba(0,113,227,0.10); color: var(--primary); }
+        .log-status.success { background: rgba(29,154,82,0.14); color: var(--success); }
+        .log-status.error { background: rgba(217,48,37,0.14); color: var(--danger); }
+        .log-summary { display: none; padding: 14px 18px 0; color: var(--muted); font-size: 0.92rem; }
+        .log-summary.visible { display: block; }
+        .log-container { max-height: 380px; overflow-y: auto; padding: 18px; }
         .log-line {
-            margin-bottom: 6px;
-            white-space: pre-wrap;
-            word-break: break-word;
+            display: grid; grid-template-columns: 78px 84px 1fr; gap: 12px; align-items: start;
+            padding: 12px 14px; border-radius: 18px; margin-bottom: 10px;
+            background: rgba(255,255,255,0.8); border: 1px solid rgba(29,29,31,0.05); line-height: 1.55;
         }
-
-        .log-line.warn {
-            color: #fbbf24;
+        .log-time { color: var(--muted); font-size: 0.82rem; font-variant-numeric: tabular-nums; }
+        .log-badge {
+            display: inline-flex; justify-content: center; align-items: center; min-height: 28px; border-radius: 999px;
+            font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+            padding: 0 10px; background: rgba(29,29,31,0.06); color: #515154;
         }
+        .log-text { white-space: pre-wrap; word-break: break-word; font-size: 0.92rem; }
+        .log-line.info .log-badge { background: rgba(0,113,227,0.10); color: var(--primary); }
+        .log-line.warn .log-badge { background: rgba(191,90,22,0.12); color: #bf5a16; }
+        .log-line.error .log-badge { background: rgba(217,48,37,0.14); color: var(--danger); }
+        .log-line.done .log-badge { background: rgba(29,154,82,0.14); color: var(--success); }
+        .empty-state { padding: 26px 18px; text-align: center; color: var(--muted); font-size: 0.94rem; }
 
-        .log-line.error {
-            color: #fca5a5;
-        }
-
-        .log-line.done {
-            color: #86efac;
-            font-weight: 700;
-        }
-
-        .message {
-            margin-top: 12px;
-            padding: 10px 12px;
-            border-radius: 12px;
-            display: none;
-        }
-
-        .message.visible {
-            display: block;
-        }
-
-        .message.success {
-            background: rgba(21, 128, 61, 0.12);
-            color: var(--success);
-        }
-
-        .message.error {
-            background: rgba(185, 28, 28, 0.12);
-            color: var(--danger);
-        }
-
-        .hidden {
-            display: none;
-        }
-
-        @media (max-width: 920px) {
-            .grid {
-                grid-template-columns: 1fr;
-            }
-
-            .form-row,
-            .form-row.three {
-                grid-template-columns: 1fr;
-            }
-
-            .content,
-            .hero {
-                padding-left: 20px;
-                padding-right: 20px;
-            }
+        @media (max-width: 1080px) { .grid { grid-template-columns: 1fr; } }
+        @media (max-width: 760px) {
+            body { padding: 16px; }
+            .hero { padding: 20px 0 24px; }
+            .card-head, .card-body { padding-left: 18px; padding-right: 18px; }
+            .row, .row-3, .radio-grid { grid-template-columns: 1fr; }
+            .log-line { grid-template-columns: 1fr; gap: 8px; }
         }
     </style>
 </head>
-
 <body>
-    <div class="shell">
-        <div class="hero">
-            <h1>证书同步管理系统</h1>
-            <p>服务器列表改为本地数据库管理，支持搜索、分页和逐条维护，避免整表加载变慢。</p>
-        </div>
+    <div class="page">
+        <section class="hero">
+            <span class="eyebrow">Certificate Sync Console</span>
+            <h1>更安静，也更清晰地管理证书同步。</h1>
+            <p>服务器列表已经迁移到本地数据库。现在可以按页查看、搜索、单机同步，并在同一个日志视图里看到更清楚的任务过程与结果。</p>
+            <div class="hero-stats">
+                <div class="stat-pill">
+                    <strong id="heroServerCount">0 台</strong>
+                    <span>已纳入服务器库</span>
+                </div>
+                <div class="stat-pill">
+                    <strong>SQLite</strong>
+                    <span>本地存储，结构更稳定</span>
+                </div>
+                <div class="stat-pill">
+                    <strong>单机同步</strong>
+                    <span>按钮颜色即时反馈</span>
+                </div>
+            </div>
+        </section>
 
-        <div class="content">
-            <div class="grid">
-                <div class="card">
-                    <h2>执行同步</h2>
+        <section class="grid">
+            <div class="card">
+                <div class="card-head">
+                    <h2 class="card-title">执行同步</h2>
+                    <p class="card-subtitle">选择证书域名后，可以同步全部已启用服务器，或者只同步本次临时指定的目标。</p>
+                </div>
+                <div class="card-body">
                     <form id="syncForm">
                         <div class="field">
                             <label for="domain">证书域名</label>
-                            <div class="button-row">
+                            <div class="btn-row">
                                 <select id="domain" name="domain" required>
                                     <option value="">加载中...</option>
                                 </select>
-                                <button type="button" id="refreshDomains" class="secondary-btn">刷新域名</button>
+                                <button type="button" id="refreshDomains" class="btn-secondary">刷新域名</button>
                             </div>
-                            <div class="muted">域名列表会并行读取证书过期时间，减少首页等待。</div>
+                            <div class="field-hint">域名列表会并行读取证书到期信息，尽量减少首页等待时间。</div>
                         </div>
 
-                        <div class="field" style="margin-top: 18px;">
+                        <div class="field section">
                             <label>目标模式</label>
-                            <div class="radio-row">
+                            <div class="radio-grid">
                                 <label class="radio-option active">
                                     <input type="radio" name="target_mode" value="all" checked>
-                                    使用全部已启用服务器
+                                    <span>
+                                        <span class="radio-title">全部已启用服务器</span>
+                                        <span class="radio-copy">直接使用数据库中启用状态的全部节点。</span>
+                                    </span>
                                 </label>
                                 <label class="radio-option">
                                     <input type="radio" name="target_mode" value="specific">
-                                    临时指定服务器
+                                    <span>
+                                        <span class="radio-title">临时指定服务器</span>
+                                        <span class="radio-copy">仅用于本次任务，不写入服务器库。</span>
+                                    </span>
                                 </label>
                             </div>
                         </div>
 
-                        <div id="specificTargets" class="hidden" style="margin-top: 18px;">
+                        <div id="specificTargets" class="hidden">
                             <div class="field">
                                 <label for="specific_ips">临时服务器列表</label>
-                                <textarea id="specific_ips" name="specific_ips"
-                                    placeholder="每行一个，格式如 192.168.1.10:22 或 app.example.com:2222"></textarea>
-                                <div class="muted">这里只用于本次同步，不会写入数据库。</div>
+                                <textarea id="specific_ips" name="specific_ips" placeholder="每行一个，例如&#10;192.168.1.10:22&#10;app.example.com:2222"></textarea>
+                                <div class="field-hint">支持 `IP:端口` 或 `域名:端口`，未填写端口时默认使用 22。</div>
                             </div>
                         </div>
 
-                        <div class="button-row" style="margin-top: 20px;">
-                            <button type="submit" id="submitBtn" class="primary-btn">开始同步</button>
+                        <div class="btn-row section">
+                            <button type="submit" id="submitBtn" class="btn-primary">开始同步</button>
                         </div>
                     </form>
 
-                    <div class="log-container" id="logContainer"></div>
+                    <div id="logShell" class="log-shell">
+                        <div class="log-head">
+                            <div>
+                                <div class="log-title" id="logTitle">同步日志</div>
+                                <div class="log-meta" id="logMeta">等待任务开始</div>
+                            </div>
+                            <div class="log-status" id="logStatus">待命</div>
+                        </div>
+                        <div class="log-summary" id="logSummary"></div>
+                        <div class="log-container" id="logContainer"></div>
+                    </div>
                 </div>
+            </div>
 
-                <div class="card">
-                    <h2 id="editorTitle">新增服务器</h2>
+            <div class="card">
+                <div class="card-head">
+                    <h2 class="card-title" id="editorTitle">新增服务器</h2>
+                    <p class="card-subtitle">新增、修改服务器配置，支持分组、备注和启用状态管理。</p>
+                </div>
+                <div class="card-body">
                     <form id="serverForm">
                         <input type="hidden" id="serverId">
-                        <div class="form-row three">
+                        <div class="row-3">
                             <div class="field">
-                                <label for="serverHost">主机/IP</label>
+                                <label for="serverHost">主机 / IP</label>
                                 <input id="serverHost" type="text" placeholder="例如 192.168.1.100 或 app.example.com" required>
                             </div>
                             <div class="field">
@@ -436,10 +302,10 @@
                             </div>
                         </div>
 
-                        <div class="form-row">
+                        <div class="row">
                             <div class="field">
                                 <label for="serverRemark">备注</label>
-                                <input id="serverRemark" type="text" placeholder="例如 华南区网关">
+                                <input id="serverRemark" type="text" placeholder="例如 华南入口节点">
                             </div>
                             <div class="field">
                                 <label for="serverEnabled">状态</label>
@@ -450,24 +316,28 @@
                             </div>
                         </div>
 
-                        <div class="button-row">
-                            <button type="submit" class="success-btn" id="saveServerBtn">保存服务器</button>
-                            <button type="button" class="secondary-btn" id="resetServerBtn">清空表单</button>
+                        <div class="btn-row">
+                            <button type="submit" class="btn-primary" id="saveServerBtn">保存服务器</button>
+                            <button type="button" class="btn-secondary" id="resetServerBtn">清空表单</button>
                         </div>
                     </form>
-
                     <div id="serverMessage" class="message"></div>
                 </div>
             </div>
+        </section>
 
-            <div class="card" style="margin-top: 20px;">
-                <h2>全局服务器库</h2>
+        <section class="card section">
+            <div class="card-head">
+                <h2 class="card-title">全局服务器库</h2>
+                <p class="card-subtitle">单机同步按钮默认灰色，执行成功后显示绿色，失败后显示红色，便于快速识别最近状态。</p>
+            </div>
+            <div class="card-body">
                 <div class="toolbar">
                     <div class="field">
                         <label for="searchInput">搜索</label>
                         <input id="searchInput" type="text" placeholder="按主机、端口、分组、备注搜索">
                     </div>
-                    <div class="field" style="max-width: 160px;">
+                    <div class="field" style="max-width: 180px;">
                         <label for="pageSizeSelect">每页数量</label>
                         <select id="pageSizeSelect">
                             <option value="10">10</option>
@@ -478,13 +348,15 @@
                     </div>
                 </div>
 
-                <div class="button-row" style="margin-bottom: 12px;">
-                    <button type="button" id="searchBtn" class="primary-btn">查询</button>
-                    <button type="button" id="resetSearchBtn" class="secondary-btn">重置</button>
+                <div class="stats-row">
+                    <div class="btn-row">
+                        <button type="button" id="searchBtn" class="btn-primary">查询</button>
+                        <button type="button" id="resetSearchBtn" class="btn-secondary">重置</button>
+                    </div>
                     <div class="stats" id="serverStats"></div>
                 </div>
 
-                <div style="overflow-x: auto;">
+                <div class="table-wrap">
                     <table>
                         <thead>
                             <tr>
@@ -499,21 +371,21 @@
                         </thead>
                         <tbody id="serverTableBody">
                             <tr>
-                                <td colspan="7" class="muted">正在加载服务器列表...</td>
+                                <td colspan="7" class="empty-state">正在加载服务器列表...</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <div class="pagination">
-                    <div id="paginationInfo" class="muted"></div>
-                    <div class="button-row">
-                        <button type="button" id="prevPageBtn" class="secondary-btn">上一页</button>
-                        <button type="button" id="nextPageBtn" class="secondary-btn">下一页</button>
+                <div class="pagination" style="margin-top: 18px;">
+                    <div class="stats" id="paginationInfo"></div>
+                    <div class="btn-row">
+                        <button type="button" id="prevPageBtn" class="btn-secondary">上一页</button>
+                        <button type="button" id="nextPageBtn" class="btn-secondary">下一页</button>
                     </div>
                 </div>
             </div>
-        </div>
+        </section>
     </div>
 
     <script>
@@ -523,7 +395,8 @@
             page: 1,
             pageSize: 20,
             pagination: { total: 0, pages: 0 },
-            editingId: null
+            editingId: null,
+            syncButtonStates: {}
         };
 
         const domainSelect = document.getElementById('domain');
@@ -533,6 +406,12 @@
         const radioOptions = document.querySelectorAll('.radio-option');
         const syncForm = document.getElementById('syncForm');
         const submitBtn = document.getElementById('submitBtn');
+
+        const logShell = document.getElementById('logShell');
+        const logTitle = document.getElementById('logTitle');
+        const logMeta = document.getElementById('logMeta');
+        const logStatus = document.getElementById('logStatus');
+        const logSummary = document.getElementById('logSummary');
         const logContainer = document.getElementById('logContainer');
 
         const serverForm = document.getElementById('serverForm');
@@ -555,7 +434,22 @@
         const paginationInfo = document.getElementById('paginationInfo');
         const prevPageBtn = document.getElementById('prevPageBtn');
         const nextPageBtn = document.getElementById('nextPageBtn');
+        const heroServerCount = document.getElementById('heroServerCount');
+
         let currentPageServers = [];
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function nowTime() {
+            return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        }
 
         function setMessage(text, type = 'success') {
             serverMessage.textContent = text;
@@ -590,81 +484,196 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
+        function getSyncButtonState(serverId) {
+            return state.syncButtonStates[serverId] || 'idle';
+        }
+
+        function setSyncButtonState(serverId, status) {
+            state.syncButtonStates[serverId] = status;
+            const button = document.querySelector(`[data-sync-server-id="${serverId}"]`);
+            if (!button) return;
+
+            button.className = 'sync-btn';
+            if (status !== 'idle') button.classList.add(status);
+
+            if (status === 'running') {
+                button.textContent = '同步中';
+                button.disabled = true;
+            } else if (status === 'success') {
+                button.textContent = '已成功';
+                button.disabled = false;
+            } else if (status === 'error') {
+                button.textContent = '已失败';
+                button.disabled = false;
+            } else {
+                button.textContent = '单机同步';
+                button.disabled = button.dataset.enabled !== 'true';
+            }
+        }
+
+        function setLogStatus(status, text) {
+            logStatus.className = 'log-status';
+            if (status) logStatus.classList.add(status);
+            logStatus.textContent = text;
+        }
+
+        function setLogSummary(text) {
+            if (!text) {
+                logSummary.textContent = '';
+                logSummary.className = 'log-summary';
+                return;
+            }
+            logSummary.textContent = text;
+            logSummary.className = 'log-summary visible';
+        }
+
+        function startLogSession(title, meta) {
+            logShell.classList.add('active');
+            logTitle.textContent = title;
+            logMeta.textContent = meta;
+            logContainer.innerHTML = '';
+            setLogStatus('running', '进行中');
+            setLogSummary('');
+        }
+
+        function finishLogSession(status, summary, meta) {
+            setLogStatus(status, status === 'success' ? '已完成' : '有失败');
+            setLogSummary(summary);
+            if (meta) logMeta.textContent = meta;
+        }
+
+        function inferLogType(message) {
+            if (message.includes('[ERROR]')) return 'error';
+            if (message.includes('[WARN]')) return 'warn';
+            return 'info';
+        }
+
+        function addLog(message, type = 'info', label = '') {
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+
+            const time = document.createElement('div');
+            time.className = 'log-time';
+            time.textContent = nowTime();
+
+            const badge = document.createElement('div');
+            badge.className = 'log-badge';
+            badge.textContent = label || ({ info: 'INFO', warn: 'WARN', error: 'ERROR', done: 'DONE' }[type] || 'INFO');
+
+            const text = document.createElement('div');
+            text.className = 'log-text';
+            text.textContent = message;
+
+            line.appendChild(time);
+            line.appendChild(badge);
+            line.appendChild(text);
+            logContainer.appendChild(line);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        async function consumeSyncStream(response, options) {
+            const { onSuccess, onFailure, onFinishMeta, successText, failurePrefix } = options;
+
+            if (!response.ok) {
+                const text = await response.text();
+                addLog(text, 'error');
+                finishLogSession('error', text, onFinishMeta('失败'));
+                if (onFailure) onFailure(text);
+                return;
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value);
+                const lines = chunk.split('\n');
+                lines.forEach((line) => {
+                    if (!line.startsWith('data: ')) return;
+                    const message = line.slice(6);
+                    if (message === '[KEEPALIVE]' || message === '[DONE]') return;
+                    if (message.startsWith('[SUCCESS]')) {
+                        addLog(successText, 'done', 'OK');
+                        finishLogSession('success', successText, onFinishMeta('成功'));
+                        if (onSuccess) onSuccess();
+                        return;
+                    }
+                    if (message.startsWith('[FAILED]')) {
+                        const failed = message.replace('[FAILED]', '').trim() || '存在失败节点';
+                        const text = `${failurePrefix}${failed}`;
+                        addLog(text, 'error', 'FAIL');
+                        finishLogSession('error', text, onFinishMeta('失败'));
+                        if (onFailure) onFailure(failed);
+                        return;
+                    }
+                    addLog(message, inferLogType(message));
+                });
+            }
+        }
+
         async function loadDomains() {
             domainSelect.innerHTML = '<option value="">加载中...</option>';
             try {
                 const response = await fetch('/api/domains');
                 const data = await response.json();
-
-                if (!data.success) {
-                    throw new Error(data.error || '加载域名失败');
-                }
-
+                if (!data.success) throw new Error(data.error || '加载域名失败');
                 if (!data.domains.length) {
                     domainSelect.innerHTML = '<option value="">未找到可用证书</option>';
                     return;
                 }
 
-                const infoResults = await Promise.all(
-                    data.domains.map(async (domain) => {
-                        try {
-                            const certRes = await fetch(`/api/cert_info/${encodeURIComponent(domain)}`);
-                            const certData = await certRes.json();
-                            return { domain, certData };
-                        } catch (error) {
-                            return { domain, certData: null };
-                        }
-                    })
-                );
+                const infoResults = await Promise.all(data.domains.map(async (domain) => {
+                    try {
+                        const certRes = await fetch(`/api/cert_info/${encodeURIComponent(domain)}`);
+                        const certData = await certRes.json();
+                        return { domain, certData };
+                    } catch (error) {
+                        return { domain, certData: null };
+                    }
+                }));
 
                 domainSelect.innerHTML = '<option value="">请选择证书域名</option>';
                 infoResults.forEach(({ domain, certData }) => {
                     const option = document.createElement('option');
                     option.value = domain;
-
                     if (certData && certData.success) {
-                        const prefix = certData.days_left < 30 ? '即将到期' : '有效';
-                        option.textContent = `${domain} (${prefix}，剩余 ${certData.days_left} 天)`;
+                        const tag = certData.days_left < 30 ? '即将到期' : '有效';
+                        option.textContent = `${domain} (${tag}，剩余 ${certData.days_left} 天)`;
                     } else {
                         option.textContent = domain;
                     }
-
                     domainSelect.appendChild(option);
                 });
             } catch (error) {
                 domainSelect.innerHTML = '<option value="">加载失败</option>';
-                addLog(`域名加载失败: ${error.message}`, 'error');
+                startLogSession('域名加载日志', '读取证书目录时发生问题');
+                addLog(`域名加载失败：${error.message}`, 'error');
+                finishLogSession('error', '域名列表未能成功加载。', '请检查后端目录和权限');
             }
         }
 
         async function loadServers() {
-            serverTableBody.innerHTML = '<tr><td colspan="7" class="muted">正在加载服务器列表...</td></tr>';
+            serverTableBody.innerHTML = '<tr><td colspan="7" class="empty-state">正在加载服务器列表...</td></tr>';
             try {
-                const params = new URLSearchParams({
-                    page: state.page,
-                    page_size: state.pageSize,
-                    search: state.search
-                });
+                const params = new URLSearchParams({ page: state.page, page_size: state.pageSize, search: state.search });
                 const response = await fetch(`/api/servers?${params.toString()}`);
                 const data = await response.json();
-
-                if (!data.success) {
-                    throw new Error(data.error || '加载服务器失败');
-                }
+                if (!data.success) throw new Error(data.error || '加载服务器失败');
 
                 renderServers(data.items);
                 state.pagination = data.pagination;
 
                 const total = data.pagination.total;
-                serverStats.textContent = `共 ${total} 台服务器`;
-                paginationInfo.textContent = total
-                    ? `第 ${data.pagination.page} / ${data.pagination.pages} 页`
-                    : '暂无服务器';
-
+                serverStats.textContent = `当前共 ${total} 台服务器`;
+                paginationInfo.textContent = total ? `第 ${data.pagination.page} / ${data.pagination.pages} 页` : '暂无服务器';
+                heroServerCount.textContent = `${total} 台`;
                 prevPageBtn.disabled = state.page <= 1;
                 nextPageBtn.disabled = !data.pagination.pages || state.page >= data.pagination.pages;
             } catch (error) {
-                serverTableBody.innerHTML = `<tr><td colspan="7" class="muted">加载失败: ${error.message}</td></tr>`;
+                serverTableBody.innerHTML = `<tr><td colspan="7" class="empty-state">加载失败：${escapeHtml(error.message)}</td></tr>`;
                 serverStats.textContent = '';
                 paginationInfo.textContent = '';
             }
@@ -672,29 +681,32 @@
 
         function renderServers(servers) {
             currentPageServers = servers;
-
             if (!servers.length) {
-                serverTableBody.innerHTML = '<tr><td colspan="7" class="muted">没有匹配的服务器记录</td></tr>';
+                serverTableBody.innerHTML = '<tr><td colspan="7" class="empty-state">没有匹配的服务器记录</td></tr>';
                 return;
             }
 
-            serverTableBody.innerHTML = servers.map((server) => `
-                <tr>
-                    <td>${server.host}</td>
-                    <td>${server.port}</td>
-                    <td>${server.group_name || 'default'}</td>
-                    <td>${server.remark || '-'}</td>
-                    <td><span class="chip ${server.enabled ? 'enabled' : 'disabled'}">${server.enabled ? '启用' : '禁用'}</span></td>
-                    <td>${server.updated_at || '-'}</td>
-                    <td>
-                        <div class="table-actions">
-                            <button type="button" class="warning-btn" onclick="syncSingleServer(${server.id})" ${server.enabled ? '' : 'disabled'}>单机同步</button>
-                            <button type="button" class="secondary-btn" onclick="editServerById(${server.id})">编辑</button>
-                            <button type="button" class="danger-btn" onclick="removeServer(${server.id})">删除</button>
-                        </div>
-                    </td>
-                </tr>
-            `).join('');
+            serverTableBody.innerHTML = servers.map((server) => {
+                const syncState = getSyncButtonState(server.id);
+                const syncTextMap = { idle: '单机同步', running: '同步中', success: '已成功', error: '已失败' };
+                return `
+                    <tr>
+                        <td>${escapeHtml(server.host)}</td>
+                        <td>${escapeHtml(server.port)}</td>
+                        <td>${escapeHtml(server.group_name || 'default')}</td>
+                        <td>${escapeHtml(server.remark || '-')}</td>
+                        <td><span class="chip ${server.enabled ? 'enabled' : 'disabled'}">${server.enabled ? '启用' : '禁用'}</span></td>
+                        <td>${escapeHtml(server.updated_at || '-')}</td>
+                        <td>
+                            <div class="table-actions">
+                                <button type="button" class="sync-btn${syncState !== 'idle' ? ` ${syncState}` : ''}" data-sync-server-id="${server.id}" data-enabled="${server.enabled}" onclick="syncSingleServer(${server.id})" ${server.enabled && syncState !== 'running' ? '' : 'disabled'}>${syncTextMap[syncState] || '单机同步'}</button>
+                                <button type="button" class="btn-secondary" onclick="editServerById(${server.id})">编辑</button>
+                                <button type="button" class="btn-danger" onclick="removeServer(${server.id})">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
         }
 
         window.editServerById = function (serverId) {
@@ -708,27 +720,15 @@
         };
 
         window.removeServer = async function (serverId) {
-            if (!window.confirm('确认删除这台服务器吗？')) {
-                return;
-            }
-
+            if (!window.confirm('确认删除这台服务器吗？')) return;
             try {
                 const response = await fetch(`/api/servers/${serverId}`, { method: 'DELETE' });
                 const data = await response.json();
-                if (!data.success) {
-                    throw new Error(data.error || '删除失败');
-                }
-
-                if (state.editingId === serverId) {
-                    resetServerForm();
-                }
-
+                if (!data.success) throw new Error(data.error || '删除失败');
+                if (state.editingId === serverId) resetServerForm();
+                delete state.syncButtonStates[serverId];
                 setMessage('服务器已删除');
-
-                if (state.page > 1 && serverTableBody.querySelectorAll('tr').length === 1) {
-                    state.page -= 1;
-                }
-
+                if (state.page > 1 && currentPageServers.length === 1) state.page -= 1;
                 await loadServers();
             } catch (error) {
                 setMessage(error.message, 'error');
@@ -738,74 +738,46 @@
         window.syncSingleServer = async function (serverId) {
             const domain = domainSelect.value;
             if (!domain) {
-                addLog('请先选择证书域名，再执行单机同步', 'error');
+                startLogSession('单机同步日志', '尚未开始');
+                addLog('请先选择证书域名，再执行单机同步。', 'error');
+                finishLogSession('error', '单机同步未启动。', '缺少证书域名');
                 return;
             }
 
             const server = currentPageServers.find((item) => item.id === serverId);
             if (!server) {
-                addLog('未找到目标服务器', 'error');
+                startLogSession('单机同步日志', '尚未开始');
+                addLog('未找到目标服务器。', 'error');
+                finishLogSession('error', '单机同步未启动。', '目标服务器不存在于当前页');
                 return;
             }
 
-            logContainer.innerHTML = '';
-            logContainer.classList.add('active');
-            addLog(`开始同步单台服务器: ${server.host}:${server.port}`, 'info');
+            setSyncButtonState(serverId, 'running');
+            startLogSession('单机同步日志', `目标 ${server.host}:${server.port}`);
+            addLog(`准备同步 ${domain} 到 ${server.host}:${server.port}`, 'info', 'TASK');
 
             const formData = new FormData();
             formData.append('domain', domain);
 
             try {
-                const response = await fetch(`/api/servers/${serverId}/sync`, {
-                    method: 'POST',
-                    body: formData
+                const response = await fetch(`/api/servers/${serverId}/sync`, { method: 'POST', body: formData });
+                await consumeSyncStream(response, {
+                    onSuccess: () => setSyncButtonState(serverId, 'success'),
+                    onFailure: () => setSyncButtonState(serverId, 'error'),
+                    onFinishMeta: (status) => `单机同步${status} · ${server.host}:${server.port}`,
+                    successText: `单台服务器 ${server.host}:${server.port} 同步完成。`,
+                    failurePrefix: '单台服务器同步失败：'
                 });
-
-                if (!response.ok) {
-                    addLog(await response.text(), 'error');
-                    return;
-                }
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) {
-                        break;
-                    }
-
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n');
-                    lines.forEach((line) => {
-                        if (!line.startsWith('data: ')) {
-                            return;
-                        }
-
-                        const message = line.slice(6);
-                        if (message === '[KEEPALIVE]' || message === '[DONE]') {
-                            return;
-                        }
-                        if (message.startsWith('[SUCCESS]')) {
-                            addLog('单台服务器同步完成', 'done');
-                            return;
-                        }
-                        if (message.startsWith('[FAILED]')) {
-                            addLog(`单台服务器同步失败: ${message.replace('[FAILED]', '').trim() || server.host}`, 'error');
-                            return;
-                        }
-                        addLog(message, inferLogType(message));
-                    });
-                }
             } catch (error) {
-                addLog(`连接错误: ${error.message}`, 'error');
+                setSyncButtonState(serverId, 'error');
+                addLog(`连接错误：${error.message}`, 'error');
+                finishLogSession('error', '单机同步失败。', `网络请求异常 · ${server.host}:${server.port}`);
             }
         };
 
         async function saveServer(event) {
             event.preventDefault();
             clearMessage();
-
             const payload = {
                 host: serverHostInput.value.trim(),
                 port: Number(serverPortInput.value),
@@ -813,23 +785,18 @@
                 remark: serverRemarkInput.value.trim(),
                 enabled: serverEnabledInput.value === 'true'
             };
-
             const isEdit = Boolean(state.editingId);
             const url = isEdit ? `/api/servers/${state.editingId}` : '/api/servers';
             const method = isEdit ? 'PUT' : 'POST';
-
             try {
                 const response = await fetch(url, {
                     method,
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
-
                 const data = await response.json();
-                if (!data.success) {
-                    throw new Error(data.error || '保存失败');
-                }
-
+                if (!data.success) throw new Error(data.error || '保存失败');
+                if (data.server && !data.server.enabled) delete state.syncButtonStates[data.server.id];
                 setMessage(isEdit ? '服务器已更新' : '服务器已创建');
                 resetServerForm();
                 await loadServers();
@@ -841,7 +808,6 @@
         function updateTargetMode(mode) {
             state.currentMode = mode;
             specificTargets.classList.toggle('hidden', mode !== 'specific');
-
             radioOptions.forEach((option) => {
                 const radio = option.querySelector('input');
                 option.classList.toggle('active', radio.value === mode);
@@ -850,6 +816,12 @@
 
         async function submitSync(event) {
             event.preventDefault();
+            if (!domainSelect.value) {
+                startLogSession('全量同步日志', '尚未开始');
+                addLog('请选择证书域名。', 'error');
+                finishLogSession('error', '同步未启动。', '缺少证书域名');
+                return;
+            }
 
             const formData = new FormData();
             formData.append('domain', domainSelect.value);
@@ -858,83 +830,38 @@
             if (state.currentMode === 'specific') {
                 const value = specificIps.value.trim();
                 if (!value) {
-                    addLog('请先填写临时服务器列表', 'error');
+                    startLogSession('临时目标同步日志', '尚未开始');
+                    addLog('请先填写临时服务器列表。', 'error');
+                    finishLogSession('error', '同步未启动。', '缺少临时目标');
                     return;
                 }
                 formData.append('specific_ips', value);
             }
 
-            logContainer.innerHTML = '';
-            logContainer.classList.add('active');
             submitBtn.disabled = true;
             submitBtn.textContent = '同步中...';
+            startLogSession(
+                state.currentMode === 'all' ? '全量同步日志' : '临时目标同步日志',
+                state.currentMode === 'all' ? '目标：全部已启用服务器' : '目标：临时目标列表'
+            );
+            addLog(`开始同步证书 ${domainSelect.value}`, 'info', 'TASK');
 
             try {
-                const response = await fetch('/sync', {
-                    method: 'POST',
-                    body: formData
+                const response = await fetch('/sync', { method: 'POST', body: formData });
+                await consumeSyncStream(response, {
+                    onSuccess: null,
+                    onFailure: null,
+                    onFinishMeta: (status) => `任务${status} · ${state.currentMode === 'all' ? '全部已启用服务器' : '临时目标列表'}`,
+                    successText: '本次同步已全部完成。',
+                    failurePrefix: '同步失败：'
                 });
-
-                if (!response.ok) {
-                    addLog(await response.text(), 'error');
-                    return;
-                }
-
-                const reader = response.body.getReader();
-                const decoder = new TextDecoder();
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) {
-                        break;
-                    }
-
-                    const chunk = decoder.decode(value);
-                    const lines = chunk.split('\n');
-                    lines.forEach((line) => {
-                        if (!line.startsWith('data: ')) {
-                            return;
-                        }
-
-                        const message = line.slice(6);
-                        if (message === '[KEEPALIVE]' || message === '[DONE]') {
-                            return;
-                        }
-                        if (message.startsWith('[SUCCESS]')) {
-                            addLog('全部服务器同步完成', 'done');
-                            return;
-                        }
-                        if (message.startsWith('[FAILED]')) {
-                            addLog(`同步失败: ${message.replace('[FAILED]', '').trim() || '存在失败节点'}`, 'error');
-                            return;
-                        }
-                        addLog(message, inferLogType(message));
-                    });
-                }
             } catch (error) {
-                addLog(`连接错误: ${error.message}`, 'error');
+                addLog(`连接错误：${error.message}`, 'error');
+                finishLogSession('error', '同步失败。', '网络请求异常');
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = '开始同步';
             }
-        }
-
-        function inferLogType(message) {
-            if (message.includes('[ERROR]')) {
-                return 'error';
-            }
-            if (message.includes('[WARN]')) {
-                return 'warn';
-            }
-            return 'info';
-        }
-
-        function addLog(message, type = 'info') {
-            const line = document.createElement('div');
-            line.className = `log-line ${type}`;
-            line.textContent = message;
-            logContainer.appendChild(line);
-            logContainer.scrollTop = logContainer.scrollHeight;
         }
 
         searchBtn.addEventListener('click', async () => {
@@ -988,5 +915,4 @@
         loadServers();
     </script>
 </body>
-
 </html>
