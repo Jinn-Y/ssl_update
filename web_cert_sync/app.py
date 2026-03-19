@@ -5,8 +5,15 @@ import os
 import re
 import datetime
 import subprocess
-from ssh_utils import SyncManager
-from config import Config
+import sqlite3
+try:
+    from .ssh_utils import SyncManager
+    from .config import Config
+    from .server_repository import ServerRepository
+except ImportError:
+    from ssh_utils import SyncManager
+    from config import Config
+    from server_repository import ServerRepository
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'default-secret-key-change-in-production')
@@ -24,6 +31,55 @@ def requires_auth(f):
             return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated
+
+
+def is_valid_host(host):
+    pattern = re.compile(
+        r'^(localhost|'
+        r'(([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?)'
+        r'(\.([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?))*'
+        r'|\d{1,3}(\.\d{1,3}){3}))$'
+    )
+    if not pattern.match(host):
+        return False
+
+    if re.match(r'^\d{1,3}(\.\d{1,3}){3}$', host):
+        parts = host.split('.')
+        return all(0 <= int(part) <= 255 for part in parts)
+
+    return True
+
+
+def normalize_server_payload(data, config):
+    host = (data.get('host') or '').strip()
+    port_value = data.get('port', config.SSH_PORT_DEFAULT)
+    group_name = (data.get('group_name') or 'default').strip() or 'default'
+    remark = (data.get('remark') or '').strip()
+    enabled_value = data.get('enabled', True)
+
+    if isinstance(enabled_value, str):
+        enabled = enabled_value.lower() in ('true', '1', 'yes', 'on')
+    else:
+        enabled = bool(enabled_value)
+
+    if not host or not is_valid_host(host):
+        raise ValueError('Invalid host format')
+
+    try:
+        port = int(port_value)
+    except (TypeError, ValueError):
+        raise ValueError('Port must be a number')
+
+    if port < 1 or port > 65535:
+        raise ValueError('Port must be between 1 and 65535')
+
+    return {
+        'host': host,
+        'port': port,
+        'group_name': group_name,
+        'remark': remark,
+        'enabled': enabled,
+    }
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -45,10 +101,10 @@ def logout():
 
 # Input Validation Helper
 def is_valid_ip_or_domain(target):
-    # Allow IP (v4), IP:Port, or Domain
-    # Simple regex for IP/Domain
-    pattern = re.compile(r'^([a-zA-Z0-9]([a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}|(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})(:[0-9]{1,5})?$')
-    return bool(pattern.match(target))
+    parsed = ServerRepository.parse_server_value(target, Config().SSH_PORT_DEFAULT)
+    if not parsed:
+        return False
+    return is_valid_host(parsed['host']) and 1 <= parsed['port'] <= 65535
 
 
 @app.route('/')
@@ -124,48 +180,72 @@ def get_cert_info(domain):
 @app.route('/api/servers', methods=['GET'])
 @requires_auth
 def get_servers():
-    """API endpoint to get server list from servers.txt file."""
+    """API endpoint to get paginated server list from SQLite."""
     config = Config()
-    server_list_path = config.SERVER_LIST_PATH
-    servers = []
-    
+    repository = ServerRepository(config)
+
     try:
-        if os.path.exists(server_list_path):
-            with open(server_list_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#'):
-                        servers.append(line)
-        
-        return jsonify({'success': True, 'servers': servers})
+        page = request.args.get('page', default=1, type=int)
+        page_size = request.args.get('page_size', default=config.SERVER_PAGE_SIZE_DEFAULT, type=int)
+        search = request.args.get('search', default='', type=str)
+        result = repository.list_servers(page=page, page_size=page_size, search=search)
+        return jsonify({'success': True, **result})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/servers', methods=['POST'])
 @requires_auth
 def update_servers():
-    """API endpoint to update server list in servers.txt file."""
+    """API endpoint to create a server record."""
     config = Config()
-    server_list_path = config.SERVER_LIST_PATH
-    
+    repository = ServerRepository(config)
+
     try:
         data = request.get_json()
-        servers = data.get('servers', [])
-        
-        # Ensure directory exists
-        os.makedirs(os.path.dirname(server_list_path), exist_ok=True)
-        
-        # Write servers to file
-        with open(server_list_path, 'w', encoding='utf-8') as f:
-            f.write('# Server list for certificate sync\n')
-            f.write('# Format: IP:PORT or IP (default port 22)\n\n')
-            for server in servers:
-                if server.strip():
-                    if not is_valid_ip_or_domain(server.strip()):
-                        return jsonify({'success': False, 'error': f'Invalid server format: {server}'}), 400
-                    f.write(f"{server.strip()}\n")
-        
-        return jsonify({'success': True, 'message': 'Server list updated successfully'})
+        payload = normalize_server_payload(data or {}, config)
+        server = repository.create_server(**payload)
+        return jsonify({'success': True, 'message': 'Server created successfully', 'server': server}), 201
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except sqlite3.IntegrityError:
+        return jsonify({'success': False, 'error': 'Server already exists'}), 409
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/servers/<int:server_id>', methods=['PUT'])
+@requires_auth
+def replace_server(server_id):
+    """API endpoint to update a server record."""
+    config = Config()
+    repository = ServerRepository(config)
+
+    try:
+        data = request.get_json()
+        payload = normalize_server_payload(data or {}, config)
+        server = repository.update_server(server_id, **payload)
+        if not server:
+            return jsonify({'success': False, 'error': 'Server not found'}), 404
+        return jsonify({'success': True, 'message': 'Server updated successfully', 'server': server})
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except sqlite3.IntegrityError:
+        return jsonify({'success': False, 'error': 'Server already exists'}), 409
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/servers/<int:server_id>', methods=['DELETE'])
+@requires_auth
+def delete_server(server_id):
+    """API endpoint to delete a server record."""
+    repository = ServerRepository(Config())
+
+    try:
+        deleted = repository.delete_server(server_id)
+        if not deleted:
+            return jsonify({'success': False, 'error': 'Server not found'}), 404
+        return jsonify({'success': True, 'message': 'Server deleted successfully'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

@@ -3,7 +3,12 @@ import paramiko
 import concurrent.futures
 import logging
 import time
-from config import Config
+try:
+    from .config import Config
+    from .server_repository import ServerRepository
+except ImportError:
+    from config import Config
+    from server_repository import ServerRepository
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -12,29 +17,21 @@ logger = logging.getLogger(__name__)
 class SyncManager:
     def __init__(self):
         self.config = Config()
+        self.server_repository = ServerRepository(self.config)
 
     def get_server_list(self):
-        """Reads the server list from the configured file."""
-        server_list_path = self.config.SERVER_LIST_PATH
-        servers = []
-        
-        if not os.path.exists(server_list_path):
-            if self.config.DRY_RUN:
-                logger.warning(f"[Dry Run] Server list file not found at {server_list_path}. Returning dummy list.")
-                return ["192.168.1.101:22", "192.168.1.102"]
-            logger.error(f"Server list file not found: {server_list_path}")
-            return []
-
+        """Reads enabled sync targets from the repository."""
         try:
-            with open(server_list_path, 'r', encoding='utf-8') as f:
-                for line in f:
-                    line = line.strip()
-                    if line and not line.startswith('#'):
-                        servers.append(line)
+            servers = self.server_repository.list_sync_targets()
+            if not servers and self.config.DRY_RUN:
+                logger.warning("[Dry Run] No servers in repository. Returning dummy list.")
+                return ["192.168.1.101:22", "192.168.1.102:22"]
+            return servers
         except Exception as e:
             logger.error(f"Error reading server list: {e}")
-        
-        return servers
+            if self.config.DRY_RUN:
+                return ["192.168.1.101:22", "192.168.1.102:22"]
+            return []
 
     def _sync_single_server(self, server_line, domain, cert_file, key_file, log_queue=None):
         """
@@ -126,7 +123,7 @@ class SyncManager:
                 logger.error(msg)
                 if log_queue:
                     log_queue.put(f"[ERROR] {msg}")
-                return False
+                return False, []
         else:
              if log_queue:
                 log_queue.put(f"[Dry Run] Checking certificate files at {cert_dir} (Skipped)")
