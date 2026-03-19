@@ -3,6 +3,9 @@ import paramiko
 import concurrent.futures
 import logging
 import time
+import datetime
+import subprocess
+import tempfile
 try:
     from .config import Config
     from .server_repository import ServerRepository
@@ -106,6 +109,75 @@ class SyncManager:
         except Exception as e:
             log(f"Error syncing to {canonical_line}: {str(e)}", "ERROR")
             return False
+
+    def inspect_remote_certificate(self, server_line, domain):
+        """Reads the deployed certificate from the remote host and returns expiry info."""
+        parts = server_line.split(':')
+        host = parts[0]
+        port = int(parts[1]) if len(parts) > 1 else self.config.SSH_PORT_DEFAULT
+        canonical_line = f"{host}:{port}"
+        remote_cert = f"{self.config.REMOTE_DIR_BASE}/{domain}{self.config.CERT_DIR_SUFFIX}/fullchain.cer"
+
+        if self.config.DRY_RUN:
+            expiry_date = datetime.datetime.now() + datetime.timedelta(days=45)
+            return {
+                "success": True,
+                "server": canonical_line,
+                "remote_cert": remote_cert,
+                "expiry_date": expiry_date.strftime('%b %d %H:%M:%S %Y GMT'),
+                "days_left": 45,
+            }
+
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+        temp_path = None
+        try:
+            ssh.connect(host, port=port, username=self.config.REMOTE_USER, timeout=self.config.SSH_CONNECT_TIMEOUT)
+            sftp = ssh.open_sftp()
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".cer") as temp_file:
+                temp_path = temp_file.name
+            sftp.get(remote_cert, temp_path)
+            sftp.close()
+            ssh.close()
+
+            cmd = ['openssl', 'x509', '-enddate', '-noout', '-in', temp_path]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            if result.returncode != 0:
+                raise RuntimeError(result.stderr.strip() or 'Failed to parse remote certificate')
+
+            date_str = result.stdout.strip().split('=', 1)[1]
+            expiry_date = datetime.datetime.strptime(date_str, '%b %d %H:%M:%S %Y %Z')
+            days_left = (expiry_date - datetime.datetime.now()).days
+
+            return {
+                "success": True,
+                "server": canonical_line,
+                "remote_cert": remote_cert,
+                "expiry_date": date_str,
+                "days_left": days_left,
+            }
+        except FileNotFoundError:
+            return {
+                "success": False,
+                "server": canonical_line,
+                "remote_cert": remote_cert,
+                "error": "Local openssl command not found",
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "server": canonical_line,
+                "remote_cert": remote_cert,
+                "error": str(e),
+            }
+        finally:
+            if temp_path and os.path.exists(temp_path):
+                os.remove(temp_path)
+            try:
+                ssh.close()
+            except Exception:
+                pass
 
     def run_sync(self, domain, targets, log_queue=None):
         """

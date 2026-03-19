@@ -310,6 +310,34 @@ def sync_single_server(server_id):
     except Exception as e:
         return Response(f"Error: {str(e)}", status=500)
 
+
+@app.route('/api/servers/<int:server_id>/remote-cert-info', methods=['GET'])
+@requires_auth
+def get_remote_cert_info(server_id):
+    """Inspect deployed certificate expiry date on a remote server."""
+    config = Config()
+    repository = ServerRepository(config)
+    domain = request.args.get('domain', '').strip()
+
+    if not domain:
+        return jsonify({'success': False, 'error': 'Domain is required'}), 400
+
+    try:
+        server = repository.get_server(server_id)
+        if not server:
+            return jsonify({'success': False, 'error': 'Server not found'}), 404
+
+        target = f"{server['host']}:{server['port']}"
+        sync_manager = SyncManager()
+        result = sync_manager.inspect_remote_certificate(target, domain)
+
+        if not result.get('success'):
+            return jsonify(result), 500
+
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/sync', methods=['POST'])
 @requires_auth
 def sync():
