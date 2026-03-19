@@ -6,6 +6,7 @@ import re
 import datetime
 import subprocess
 import sqlite3
+from werkzeug.security import generate_password_hash, check_password_hash
 try:
     from .ssh_utils import SyncManager
     from .config import Config
@@ -21,7 +22,16 @@ app.secret_key = os.getenv('SECRET_KEY', 'default-secret-key-change-in-productio
 # Auth Helper
 def check_auth(username, password):
     config = Config()
-    return username == config.BASIC_AUTH_USERNAME and password == config.BASIC_AUTH_PASSWORD
+    repository = ServerRepository(config)
+    password_hash = repository.get_setting('auth_password_hash')
+
+    if username != config.BASIC_AUTH_USERNAME:
+        return False
+
+    if password_hash:
+        return check_password_hash(password_hash, password)
+
+    return password == config.BASIC_AUTH_PASSWORD
 
 def requires_auth(f):
     from functools import wraps
@@ -136,6 +146,13 @@ def login():
 def logout():
     session.pop('logged_in', None)
     return redirect(url_for('login'))
+
+
+def validate_new_password(new_password, confirm_password):
+    if len(new_password) < 8:
+        raise ValueError('New password must be at least 8 characters long')
+    if new_password != confirm_password:
+        raise ValueError('Password confirmation does not match')
 
 # Input Validation Helper
 def is_valid_ip_or_domain(target):
@@ -284,6 +301,30 @@ def delete_server(server_id):
         if not deleted:
             return jsonify({'success': False, 'error': 'Server not found'}), 404
         return jsonify({'success': True, 'message': 'Server deleted successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/account/password', methods=['POST'])
+@requires_auth
+def change_password():
+    config = Config()
+    repository = ServerRepository(config)
+
+    try:
+        data = request.get_json() or {}
+        current_password = data.get('current_password', '')
+        new_password = data.get('new_password', '')
+        confirm_password = data.get('confirm_password', '')
+
+        if not check_auth(config.BASIC_AUTH_USERNAME, current_password):
+            return jsonify({'success': False, 'error': 'Current password is incorrect'}), 400
+
+        validate_new_password(new_password, confirm_password)
+        repository.set_setting('auth_password_hash', generate_password_hash(new_password))
+        return jsonify({'success': True, 'message': 'Password updated successfully'})
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 

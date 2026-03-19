@@ -39,6 +39,36 @@
             }
         }
 
+        :root[data-force-theme="light"] {
+            --bg: #f5f5f7;
+            --bg-soft: #fbfbfd;
+            --text: #1d1d1f;
+            --muted: #6e6e73;
+            --line: rgba(29, 29, 31, 0.08);
+            --panel: rgba(255, 255, 255, 0.76);
+            --panel-strong: rgba(255, 255, 255, 0.92);
+            --primary: #0071e3;
+            --primary-hover: #0077ed;
+            --danger: #d93025;
+            --danger-soft: rgba(217, 48, 37, 0.12);
+            --shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+        }
+
+        :root[data-force-theme="dark"] {
+            --bg: #0b0b0f;
+            --bg-soft: #111216;
+            --text: #f5f5f7;
+            --muted: #a1a1a6;
+            --line: rgba(255, 255, 255, 0.08);
+            --panel: rgba(28, 28, 30, 0.72);
+            --panel-strong: rgba(36, 36, 39, 0.9);
+            --primary: #2997ff;
+            --primary-hover: #45a4ff;
+            --danger: #ff6961;
+            --danger-soft: rgba(255, 105, 97, 0.14);
+            --shadow: 0 24px 60px rgba(0, 0, 0, 0.36);
+        }
+
         * {
             box-sizing: border-box;
         }
@@ -140,6 +170,26 @@
             color: var(--muted);
             font-size: 0.9rem;
             line-height: 1.55;
+        }
+
+        .hero-actions {
+            margin-top: 18px;
+        }
+
+        .theme-select {
+            min-width: 180px;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 10px 14px;
+            background: rgba(255, 255, 255, 0.72);
+            color: var(--text);
+            font: inherit;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .theme-select {
+                background: rgba(255, 255, 255, 0.04);
+            }
         }
 
         .panel {
@@ -253,6 +303,13 @@
                 <span class="eyebrow">Certificate Sync Console</span>
                 <h1>登录后，继续把证书分发这件事做得更简单。</h1>
                 <p>系统会自动跟随你的设备深浅色设置，并保持和主控制台一致的视觉风格与操作节奏。</p>
+                <div class="hero-actions">
+                    <select id="themeSelect" class="theme-select" aria-label="主题模式">
+                        <option value="system">跟随系统</option>
+                        <option value="light">浅色</option>
+                        <option value="dark">深色</option>
+                    </select>
+                </div>
             </div>
 
             <div class="hero-list">
@@ -290,5 +347,29 @@
             <div class="footnote">界面会自动适配浅色、深色和系统主题，无需单独切换。</div>
         </section>
     </div>
+    <script>
+        function applyTheme(theme) {
+            const root = document.documentElement;
+            root.style.colorScheme = theme === 'system' ? 'light dark' : theme;
+            root.dataset.theme = theme;
+
+            if (theme === 'system') {
+                delete root.dataset.forceTheme;
+            } else {
+                root.dataset.forceTheme = theme;
+            }
+        }
+
+        const themeSelect = document.getElementById('themeSelect');
+        const savedTheme = localStorage.getItem('theme-preference') || 'system';
+        themeSelect.value = savedTheme;
+        applyTheme(savedTheme);
+
+        themeSelect.addEventListener('change', (event) => {
+            const theme = event.target.value;
+            localStorage.setItem('theme-preference', theme);
+            applyTheme(theme);
+        });
+    </script>
 </body>
 </html>

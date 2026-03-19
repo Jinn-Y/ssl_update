@@ -46,6 +46,15 @@ class ServerRepository:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_servers_group_name ON servers(group_name)"
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    setting_key TEXT PRIMARY KEY,
+                    setting_value TEXT NOT NULL,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
 
         self._migrate_from_text_file_if_needed()
 
@@ -215,6 +224,26 @@ class ServerRepository:
         with self._connect() as conn:
             cursor = conn.execute("DELETE FROM servers WHERE id = ?", (server_id,))
         return cursor.rowcount > 0
+
+    def get_setting(self, key: str, default: Optional[str] = None):
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT setting_value FROM app_settings WHERE setting_key = ?",
+                (key,),
+            ).fetchone()
+        return row["setting_value"] if row else default
+
+    def set_setting(self, key: str, value: str):
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO app_settings (setting_key, setting_value, updated_at)
+                VALUES (?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(setting_key)
+                DO UPDATE SET setting_value = excluded.setting_value, updated_at = CURRENT_TIMESTAMP
+                """,
+                (key, value),
+            )
 
     @staticmethod
     def _row_to_dict(row: sqlite3.Row) -> Dict:
