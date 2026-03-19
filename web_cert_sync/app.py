@@ -81,6 +81,44 @@ def normalize_server_payload(data, config):
         'enabled': enabled,
     }
 
+
+def stream_sync_response(domain, targets):
+    sync_manager = SyncManager()
+    log_queue = queue.Queue()
+
+    def run_sync_task():
+        """Run sync in background thread."""
+        try:
+            success, failed_hosts = sync_manager.run_sync(domain, targets, log_queue)
+            if success:
+                log_queue.put("[SUCCESS]")
+            else:
+                failed_str = ", ".join(failed_hosts) if failed_hosts else "Unknown"
+                log_queue.put(f"[FAILED] {failed_str}")
+            log_queue.put("[DONE]")
+        except Exception as e:
+            log_queue.put(f"[ERROR] Exception: {str(e)}")
+            log_queue.put("[FAILED]")
+            log_queue.put("[DONE]")
+
+    sync_thread = threading.Thread(target=run_sync_task)
+    sync_thread.daemon = True
+    sync_thread.start()
+
+    def generate():
+        """Generator function to stream logs to client."""
+        while True:
+            try:
+                msg = log_queue.get(timeout=1)
+                if msg == "[DONE]":
+                    yield f"data: {msg}\n\n"
+                    break
+                yield f"data: {msg}\n\n"
+            except queue.Empty:
+                yield f"data: [KEEPALIVE]\n\n"
+
+    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
@@ -249,6 +287,29 @@ def delete_server(server_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+@app.route('/api/servers/<int:server_id>/sync', methods=['POST'])
+@requires_auth
+def sync_single_server(server_id):
+    """Trigger certificate sync for a single saved server."""
+    config = Config()
+    repository = ServerRepository(config)
+    domain = request.form.get('domain', '').strip()
+
+    if not domain:
+        return Response("Error: Domain is required", status=400)
+
+    try:
+        server = repository.get_server(server_id)
+        if not server:
+            return Response("Error: Server not found", status=404)
+        if not server['enabled']:
+            return Response("Error: Server is disabled", status=400)
+        target = f"{server['host']}:{server['port']}"
+        return stream_sync_response(domain, [target])
+    except Exception as e:
+        return Response(f"Error: {str(e)}", status=500)
+
 @app.route('/sync', methods=['POST'])
 @requires_auth
 def sync():
@@ -260,9 +321,8 @@ def sync():
     if not domain:
         return Response("Error: Domain is required", status=400)
     
-    sync_manager = SyncManager()
-    
     # Determine target servers
+    sync_manager = SyncManager()
     if target_mode == 'all':
         targets = sync_manager.get_server_list()
         if not targets:
@@ -279,44 +339,7 @@ def sync():
         if not targets:
             return Response("Error: No target servers specified", status=400)
     
-    # Create a queue for log messages
-    log_queue = queue.Queue()
-    
-    def run_sync_task():
-        """Run sync in background thread."""
-        try:
-            success, failed_hosts = sync_manager.run_sync(domain, targets, log_queue)
-            if success:
-                log_queue.put("[SUCCESS]")
-            else:
-                # Send failed hosts as part of the FAILED message
-                failed_str = ", ".join(failed_hosts) if failed_hosts else "Unknown"
-                log_queue.put(f"[FAILED] {failed_str}")
-            log_queue.put("[DONE]")
-        except Exception as e:
-            log_queue.put(f"[ERROR] Exception: {str(e)}")
-            log_queue.put("[FAILED]")
-            log_queue.put("[DONE]")
-    
-    # Start sync in background thread
-    sync_thread = threading.Thread(target=run_sync_task)
-    sync_thread.daemon = True
-    sync_thread.start()
-    
-    def generate():
-        """Generator function to stream logs to client."""
-        while True:
-            try:
-                msg = log_queue.get(timeout=1)
-                if msg == "[DONE]":
-                    yield f"data: {msg}\n\n"
-                    break
-                yield f"data: {msg}\n\n"
-            except queue.Empty:
-                # Send keepalive
-                yield f"data: [KEEPALIVE]\n\n"
-    
-    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+    return stream_sync_response(domain, targets)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

@@ -688,6 +688,7 @@
                     <td>${server.updated_at || '-'}</td>
                     <td>
                         <div class="table-actions">
+                            <button type="button" class="warning-btn" onclick="syncSingleServer(${server.id})" ${server.enabled ? '' : 'disabled'}>单机同步</button>
                             <button type="button" class="secondary-btn" onclick="editServerById(${server.id})">编辑</button>
                             <button type="button" class="danger-btn" onclick="removeServer(${server.id})">删除</button>
                         </div>
@@ -731,6 +732,73 @@
                 await loadServers();
             } catch (error) {
                 setMessage(error.message, 'error');
+            }
+        };
+
+        window.syncSingleServer = async function (serverId) {
+            const domain = domainSelect.value;
+            if (!domain) {
+                addLog('请先选择证书域名，再执行单机同步', 'error');
+                return;
+            }
+
+            const server = currentPageServers.find((item) => item.id === serverId);
+            if (!server) {
+                addLog('未找到目标服务器', 'error');
+                return;
+            }
+
+            logContainer.innerHTML = '';
+            logContainer.classList.add('active');
+            addLog(`开始同步单台服务器: ${server.host}:${server.port}`, 'info');
+
+            const formData = new FormData();
+            formData.append('domain', domain);
+
+            try {
+                const response = await fetch(`/api/servers/${serverId}/sync`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    addLog(await response.text(), 'error');
+                    return;
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        break;
+                    }
+
+                    const chunk = decoder.decode(value);
+                    const lines = chunk.split('\n');
+                    lines.forEach((line) => {
+                        if (!line.startsWith('data: ')) {
+                            return;
+                        }
+
+                        const message = line.slice(6);
+                        if (message === '[KEEPALIVE]' || message === '[DONE]') {
+                            return;
+                        }
+                        if (message.startsWith('[SUCCESS]')) {
+                            addLog('单台服务器同步完成', 'done');
+                            return;
+                        }
+                        if (message.startsWith('[FAILED]')) {
+                            addLog(`单台服务器同步失败: ${message.replace('[FAILED]', '').trim() || server.host}`, 'error');
+                            return;
+                        }
+                        addLog(message, inferLogType(message));
+                    });
+                }
+            } catch (error) {
+                addLog(`连接错误: ${error.message}`, 'error');
             }
         };
 

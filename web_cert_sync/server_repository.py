@@ -179,6 +179,18 @@ class ServerRepository:
             ).fetchone()
         return self._row_to_dict(row)
 
+    def get_server(self, server_id: int):
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT id, host, port, enabled, group_name, remark, created_at, updated_at
+                FROM servers
+                WHERE id = ?
+                """,
+                (server_id,),
+            ).fetchone()
+        return self._row_to_dict(row) if row else None
+
     def update_server(self, server_id: int, host: str, port: int, group_name: str = "default", remark: str = "", enabled: bool = True):
         with self._connect() as conn:
             conn.execute(
