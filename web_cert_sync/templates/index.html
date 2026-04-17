@@ -155,34 +155,45 @@
                 linear-gradient(180deg, var(--bg-soft) 0%, var(--bg) 100%);
         }
 
-        .page { max-width: 1280px; margin: 0 auto; }
+        .page { max-width: 1460px; margin: 0 auto; }
         .topbar {
             display: flex;
-            justify-content: flex-start;
+            justify-content: space-between;
             align-items: center;
-            margin-bottom: 6px;
+            gap: 16px;
+            margin-bottom: 14px;
         }
-        .hero { padding: 24px 8px 22px; text-align: center; }
+        .topbar-copy { color: var(--muted); font-size: 0.92rem; }
+        .hero {
+            padding: 22px 24px 20px;
+            text-align: left;
+            border-radius: 28px;
+            background: linear-gradient(135deg, var(--panel-strong), var(--panel));
+            border: 1px solid var(--card-border);
+            box-shadow: var(--shadow);
+        }
         .eyebrow {
             display: inline-block; padding: 8px 14px; border-radius: 999px;
             background: rgba(0, 113, 227, 0.08); color: var(--primary); font-size: 0.9rem; font-weight: 600;
         }
         .hero h1 {
-            margin: 14px 0 10px; font-size: clamp(2.2rem, 5vw, 4rem); line-height: 1.04;
+            margin: 12px 0 10px; font-size: clamp(1.9rem, 4vw, 3rem); line-height: 1.08;
             letter-spacing: -0.04em; font-weight: 700;
             color: var(--heading);
         }
-        .hero p { max-width: 760px; margin: 0 auto; color: var(--muted); font-size: 1.05rem; line-height: 1.7; }
-        .hero-stats { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+        .hero p { max-width: 880px; margin: 0; color: var(--muted); font-size: 1rem; line-height: 1.7; }
+        .hero-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(320px, 0.75fr); gap: 18px; align-items: end; }
+        .hero-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 0; }
         .hero-actions { display: flex; justify-content: flex-start; gap: 12px; flex-wrap: wrap; }
         .stat-pill {
-            min-width: 150px; padding: 12px 18px; border-radius: 18px; background: var(--surface-glass);
+            min-width: 0; padding: 14px 16px; border-radius: 18px; background: var(--surface-glass);
             border: 1px solid var(--card-border); backdrop-filter: blur(18px); box-shadow: 0 10px 30px rgba(15,23,42,0.06);
         }
         .stat-pill strong { display: block; }
         .stat-pill span { display: block; margin-top: 4px; color: var(--muted); font-size: 0.88rem; }
 
-        .grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 16px; align-items: start; }
+        .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(340px, 0.9fr); gap: 16px; align-items: start; margin-top: 16px; }
+        .stack { display: grid; gap: 16px; align-items: start; }
         .card {
             background: var(--panel); border: 1px solid var(--card-border); border-radius: 28px;
             box-shadow: var(--shadow); backdrop-filter: blur(28px); overflow: hidden;
@@ -230,6 +241,11 @@
         .btn-secondary { background: var(--surface-subtle); color: var(--text); }
         .btn-secondary:hover:not(:disabled) { background: var(--surface-subtle-hover); }
         .btn-danger { background: rgba(217, 48, 37, 0.1); color: var(--danger); }
+        .link-btn {
+            display: inline-flex; align-items: center; justify-content: center; text-decoration: none;
+            border-radius: 999px; padding: 12px 18px; font-weight: 600; background: var(--surface-subtle); color: var(--text);
+        }
+        .link-btn:hover { background: var(--surface-subtle-hover); }
 
         .radio-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
         .radio-option {
@@ -281,6 +297,48 @@
             background: var(--line);
             margin: 22px 0;
         }
+        .mono-box {
+            padding: 13px 15px;
+            border-radius: 16px;
+            border: 1px solid var(--line);
+            background: var(--surface-input);
+            font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            word-break: break-all;
+        }
+        .status-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 14px;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            font-size: 0.86rem;
+            font-weight: 700;
+            background: var(--surface-subtle);
+            color: var(--muted);
+        }
+        .status-badge.enabled {
+            background: rgba(29,154,82,0.14);
+            color: var(--success);
+        }
+        .status-badge.disabled {
+            background: rgba(217,48,37,0.14);
+            color: var(--danger);
+        }
+        .inline-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
 
         .log-shell {
             margin-top: 14px; border-radius: 24px; overflow: hidden; background: var(--bg-soft);
@@ -321,10 +379,13 @@
         .log-line.done .log-badge { background: rgba(29,154,82,0.14); color: var(--success); }
         .empty-state { padding: 26px 18px; text-align: center; color: var(--muted); font-size: 0.94rem; }
 
-        @media (max-width: 1080px) { .grid { grid-template-columns: 1fr; } }
+        @media (max-width: 1180px) {
+            .hero-layout, .hero-stats, .dashboard-grid { grid-template-columns: 1fr; }
+        }
         @media (max-width: 760px) {
             body { padding: 16px; }
-            .hero { padding: 16px 0 18px; }
+            .topbar { align-items: flex-start; }
+            .hero { padding: 18px; }
             .card-head, .card-body { padding-left: 18px; padding-right: 18px; }
             .row, .row-3, .radio-grid { grid-template-columns: 1fr; }
             .log-line { grid-template-columns: 1fr; gap: 8px; }
@@ -334,230 +395,304 @@
 <body>
     <div class="page">
         <div class="topbar">
+            <div>
+                <div class="eyebrow">Certificate Sync Console</div>
+                <div class="topbar-copy">证书同步、服务器管理和账号安全都集中在一个更紧凑的控制台里。</div>
+            </div>
             <div class="hero-actions">
                 <select id="themeSelect" class="theme-select" aria-label="主题模式">
                     <option value="system">跟随系统</option>
                     <option value="light">浅色</option>
                     <option value="dark">深色</option>
                 </select>
+                <a href="/logout" class="link-btn">退出登录</a>
             </div>
         </div>
         <section class="hero">
-            <span class="eyebrow">Certificate Sync Console</span>
-            <h1>更安静，也更清晰地管理证书同步。</h1>
-            <p>服务器列表已经迁移到本地数据库。现在可以按页查看、搜索、单机同步，并在同一个日志视图里看到更清楚的任务过程与结果。</p>
-            <div class="hero-stats">
-                <div class="stat-pill">
-                    <strong id="heroServerCount">0 台</strong>
-                    <span>已纳入服务器库</span>
+            <div class="hero-layout">
+                <div>
+                    <h1>证书同步现在更密实了，打开就是工作区，不再留大片空白。</h1>
+                    <p>同步执行、服务器维护、密码修改和 2FA 都收拢到同一屏内。桌面端优先把常用操作贴近表格和日志，移动端则自动顺序排布。</p>
                 </div>
-                <div class="stat-pill">
-                    <strong>SQLite</strong>
-                    <span>本地存储，结构更稳定</span>
-                </div>
-                <div class="stat-pill">
-                    <strong>单机同步</strong>
-                    <span>按钮颜色即时反馈</span>
+                <div class="hero-stats">
+                    <div class="stat-pill">
+                        <strong id="heroServerCount">0 台</strong>
+                        <span>已纳入服务器库</span>
+                    </div>
+                    <div class="stat-pill">
+                        <strong>2FA 登录</strong>
+                        <span>支持 6 位动态验证码校验</span>
+                    </div>
+                    <div class="stat-pill">
+                        <strong>单机同步</strong>
+                        <span>按钮颜色即时反馈</span>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <section class="grid">
-            <div class="card">
-                <div class="card-head">
-                    <h2 class="card-title">执行同步</h2>
-                    <p class="card-subtitle">选择证书域名后，可以同步全部已启用服务器，或者只同步本次临时指定的目标。</p>
-                </div>
-                <div class="card-body">
-                    <form id="syncForm">
-                        <div class="field">
-                            <label for="domain">证书域名</label>
-                            <div class="btn-row">
-                                <select id="domain" name="domain" required>
-                                    <option value="">加载中...</option>
-                                </select>
-                                <button type="button" id="refreshDomains" class="btn-secondary">刷新域名</button>
-                            </div>
-                            <div class="field-hint">域名列表会并行读取证书到期信息，尽量减少首页等待时间。</div>
-                        </div>
-
-                        <div class="field section">
-                            <label>目标模式</label>
-                            <div class="radio-grid">
-                                <label class="radio-option active">
-                                    <input type="radio" name="target_mode" value="all" checked>
-                                    <span>
-                                        <span class="radio-title">全部已启用服务器</span>
-                                        <span class="radio-copy">直接使用数据库中启用状态的全部节点。</span>
-                                    </span>
-                                </label>
-                                <label class="radio-option">
-                                    <input type="radio" name="target_mode" value="specific">
-                                    <span>
-                                        <span class="radio-title">临时指定服务器</span>
-                                        <span class="radio-copy">仅用于本次任务，不写入服务器库。</span>
-                                    </span>
-                                </label>
-                            </div>
-                        </div>
-
-                        <div id="specificTargets" class="hidden">
-                            <div class="field">
-                                <label for="specific_ips">临时服务器列表</label>
-                                <textarea id="specific_ips" name="specific_ips" placeholder="每行一个，例如&#10;192.168.1.10:22&#10;app.example.com:2222"></textarea>
-                                <div class="field-hint">支持 `IP:端口` 或 `域名:端口`，未填写端口时默认使用 22。</div>
-                            </div>
-                        </div>
-
-                        <div class="btn-row section">
-                            <button type="submit" id="submitBtn" class="btn-primary">开始同步</button>
-                        </div>
-                    </form>
-
-                    <div id="logShell" class="log-shell">
-                        <div class="log-head">
-                            <div>
-                                <div class="log-title" id="logTitle">同步日志</div>
-                                <div class="log-meta" id="logMeta">等待任务开始</div>
-                            </div>
-                            <div class="log-status" id="logStatus">待命</div>
-                        </div>
-                        <div class="log-summary" id="logSummary"></div>
-                        <div class="log-container" id="logContainer"></div>
+        <section class="dashboard-grid">
+            <div class="stack">
+                <section class="card">
+                    <div class="card-head">
+                        <h2 class="card-title">执行同步</h2>
+                        <p class="card-subtitle">选择证书域名后，可以同步全部已启用服务器，或者只同步本次临时指定的目标。</p>
                     </div>
-                </div>
-            </div>
+                    <div class="card-body">
+                        <form id="syncForm">
+                            <div class="field">
+                                <label for="domain">证书域名</label>
+                                <div class="btn-row">
+                                    <select id="domain" name="domain" required>
+                                        <option value="">加载中...</option>
+                                    </select>
+                                    <button type="button" id="refreshDomains" class="btn-secondary">刷新域名</button>
+                                </div>
+                                <div class="field-hint">域名列表会并行读取证书到期信息，尽量减少首页等待时间。</div>
+                            </div>
 
-            <div class="card">
-                <div class="card-head">
-                    <h2 class="card-title" id="editorTitle">新增服务器</h2>
-                    <p class="card-subtitle">新增、修改服务器配置，支持分组、备注和启用状态管理。</p>
-                </div>
-                <div class="card-body">
-                    <form id="serverForm">
-                        <input type="hidden" id="serverId">
-                        <div class="row-3">
-                            <div class="field">
-                                <label for="serverHost">主机 / IP</label>
-                                <input id="serverHost" type="text" placeholder="例如 192.168.1.100 或 app.example.com" required>
+                            <div class="field section">
+                                <label>目标模式</label>
+                                <div class="radio-grid">
+                                    <label class="radio-option active">
+                                        <input type="radio" name="target_mode" value="all" checked>
+                                        <span>
+                                            <span class="radio-title">全部已启用服务器</span>
+                                            <span class="radio-copy">直接使用数据库中启用状态的全部节点。</span>
+                                        </span>
+                                    </label>
+                                    <label class="radio-option">
+                                        <input type="radio" name="target_mode" value="specific">
+                                        <span>
+                                            <span class="radio-title">临时指定服务器</span>
+                                            <span class="radio-copy">仅用于本次任务，不写入服务器库。</span>
+                                        </span>
+                                    </label>
+                                </div>
                             </div>
-                            <div class="field">
-                                <label for="serverPort">端口</label>
-                                <input id="serverPort" type="number" min="1" max="65535" value="22" required>
-                            </div>
-                            <div class="field">
-                                <label for="serverGroup">分组</label>
-                                <input id="serverGroup" type="text" value="default" placeholder="例如 prod">
-                            </div>
-                        </div>
 
-                        <div class="row">
-                            <div class="field">
-                                <label for="serverRemark">备注</label>
-                                <input id="serverRemark" type="text" placeholder="例如 华南入口节点">
+                            <div id="specificTargets" class="hidden">
+                                <div class="field">
+                                    <label for="specific_ips">临时服务器列表</label>
+                                    <textarea id="specific_ips" name="specific_ips" placeholder="&#x6bcf;&#x884c;&#x4e00;&#x4e2a;&#xff0c;&#x4f8b;&#x5982;&#10;192.168.1.10:22&#10;app.example.com:2222"></textarea>
+                                    <div class="field-hint">支持 `IP:端口` 或 `域名:端口`，未填写端口时默认使用 22。</div>
+                                </div>
                             </div>
-                            <div class="field">
-                                <label for="serverEnabled">状态</label>
-                                <select id="serverEnabled">
-                                    <option value="true">启用</option>
-                                    <option value="false">禁用</option>
-                                </select>
-                            </div>
-                        </div>
 
-                        <div class="btn-row">
-                            <button type="submit" class="btn-primary" id="saveServerBtn">保存服务器</button>
-                            <button type="button" class="btn-secondary" id="resetServerBtn">清空表单</button>
-                        </div>
-                    </form>
-                    <div id="serverMessage" class="message"></div>
-
-                    <div class="divider"></div>
-
-                    <div>
-                        <h3 class="card-title" style="font-size:1.1rem;">修改密码</h3>
-                        <p class="card-subtitle" style="margin-bottom:18px;">新密码会加密保存在本地数据库里，之后登录将使用新密码。</p>
-                        <form id="passwordForm">
-                            <div class="field">
-                                <label for="currentPassword">当前密码</label>
-                                <input id="currentPassword" type="password" required>
-                            </div>
-                            <div class="field">
-                                <label for="newPassword">新密码</label>
-                                <input id="newPassword" type="password" minlength="8" required>
-                            </div>
-                            <div class="field">
-                                <label for="confirmPassword">确认新密码</label>
-                                <input id="confirmPassword" type="password" minlength="8" required>
-                            </div>
-                            <div class="btn-row">
-                                <button type="submit" class="btn-primary">更新密码</button>
+                            <div class="btn-row section">
+                                <button type="submit" id="submitBtn" class="btn-primary">开始同步</button>
                             </div>
                         </form>
-                        <div id="passwordMessage" class="message"></div>
+
+                        <div id="logShell" class="log-shell">
+                            <div class="log-head">
+                                <div>
+                                    <div class="log-title" id="logTitle">同步日志</div>
+                                    <div class="log-meta" id="logMeta">等待任务开始</div>
+                                </div>
+                                <div class="log-status" id="logStatus">待命</div>
+                            </div>
+                            <div class="log-summary" id="logSummary"></div>
+                            <div class="log-container" id="logContainer"></div>
+                        </div>
                     </div>
-                </div>
+                </section>
+
+                <section class="card">
+                    <div class="card-head">
+                        <h2 class="card-title">全局服务器库</h2>
+                        <p class="card-subtitle">单机同步按钮默认灰色，执行成功后显示绿色，失败后显示红色，便于快速识别最近状态。</p>
+                    </div>
+                    <div class="card-body">
+                        <div class="toolbar">
+                            <div class="field">
+                                <label for="searchInput">搜索</label>
+                                <input id="searchInput" type="text" placeholder="按主机、端口、分组、备注搜索">
+                            </div>
+                            <div class="field" style="max-width: 180px;">
+                                <label for="pageSizeSelect">每页数量</label>
+                                <select id="pageSizeSelect">
+                                    <option value="10">10</option>
+                                    <option value="20" selected>20</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="stats-row">
+                            <div class="btn-row">
+                                <button type="button" id="searchBtn" class="btn-primary">查询</button>
+                                <button type="button" id="resetSearchBtn" class="btn-secondary">重置</button>
+                            </div>
+                            <div class="stats" id="serverStats"></div>
+                        </div>
+
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>主机</th>
+                                        <th>端口</th>
+                                        <th>分组</th>
+                                        <th>备注</th>
+                                        <th>状态</th>
+                                        <th>更新时间</th>
+                                        <th>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="serverTableBody">
+                                    <tr>
+                                        <td colspan="7" class="empty-state">正在加载服务器列表...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="pagination" style="margin-top: 18px;">
+                            <div class="stats" id="paginationInfo"></div>
+                            <div class="btn-row">
+                                <button type="button" id="prevPageBtn" class="btn-secondary">上一页</button>
+                                <button type="button" id="nextPageBtn" class="btn-secondary">下一页</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
             </div>
-        </section>
 
-        <section class="card section">
-            <div class="card-head">
-                <h2 class="card-title">全局服务器库</h2>
-                <p class="card-subtitle">单机同步按钮默认灰色，执行成功后显示绿色，失败后显示红色，便于快速识别最近状态。</p>
-            </div>
-            <div class="card-body">
-                <div class="toolbar">
-                    <div class="field">
-                        <label for="searchInput">搜索</label>
-                        <input id="searchInput" type="text" placeholder="按主机、端口、分组、备注搜索">
+            <div class="stack">
+                <section class="card">
+                    <div class="card-head">
+                        <h2 class="card-title" id="editorTitle">新增服务器</h2>
+                        <p class="card-subtitle">新增、修改服务器配置，支持分组、备注和启用状态管理。</p>
                     </div>
-                    <div class="field" style="max-width: 180px;">
-                        <label for="pageSizeSelect">每页数量</label>
-                        <select id="pageSizeSelect">
-                            <option value="10">10</option>
-                            <option value="20" selected>20</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                    </div>
-                </div>
+                    <div class="card-body">
+                        <form id="serverForm">
+                            <input type="hidden" id="serverId">
+                            <div class="row-3">
+                                <div class="field">
+                                    <label for="serverHost">主机 / IP</label>
+                                    <input id="serverHost" type="text" placeholder="例如 192.168.1.100 或 app.example.com" required>
+                                </div>
+                                <div class="field">
+                                    <label for="serverPort">端口</label>
+                                    <input id="serverPort" type="number" min="1" max="65535" value="22" required>
+                                </div>
+                                <div class="field">
+                                    <label for="serverGroup">分组</label>
+                                    <input id="serverGroup" type="text" value="default" placeholder="例如 prod">
+                                </div>
+                            </div>
 
-                <div class="stats-row">
-                    <div class="btn-row">
-                        <button type="button" id="searchBtn" class="btn-primary">查询</button>
-                        <button type="button" id="resetSearchBtn" class="btn-secondary">重置</button>
-                    </div>
-                    <div class="stats" id="serverStats"></div>
-                </div>
+                            <div class="row">
+                                <div class="field">
+                                    <label for="serverRemark">备注</label>
+                                    <input id="serverRemark" type="text" placeholder="例如 华南入口节点">
+                                </div>
+                                <div class="field">
+                                    <label for="serverEnabled">状态</label>
+                                    <select id="serverEnabled">
+                                        <option value="true">启用</option>
+                                        <option value="false">禁用</option>
+                                    </select>
+                                </div>
+                            </div>
 
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>主机</th>
-                                <th>端口</th>
-                                <th>分组</th>
-                                <th>备注</th>
-                                <th>状态</th>
-                                <th>更新时间</th>
-                                <th>操作</th>
-                            </tr>
-                        </thead>
-                        <tbody id="serverTableBody">
-                            <tr>
-                                <td colspan="7" class="empty-state">正在加载服务器列表...</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="pagination" style="margin-top: 18px;">
-                    <div class="stats" id="paginationInfo"></div>
-                    <div class="btn-row">
-                        <button type="button" id="prevPageBtn" class="btn-secondary">上一页</button>
-                        <button type="button" id="nextPageBtn" class="btn-secondary">下一页</button>
+                            <div class="btn-row">
+                                <button type="submit" class="btn-primary" id="saveServerBtn">保存服务器</button>
+                                <button type="button" class="btn-secondary" id="resetServerBtn">清空表单</button>
+                            </div>
+                        </form>
+                        <div id="serverMessage" class="message"></div>
                     </div>
-                </div>
+                </section>
+
+                <section class="card">
+                    <div class="card-head">
+                        <h2 class="card-title" style="font-size:1.1rem;">账号安全</h2>
+                        <p class="card-subtitle">支持修改密码，并为登录增加 6 位动态验证码校验。</p>
+                    </div>
+                    <div class="card-body">
+                        <div>
+                            <h3 class="card-title" style="font-size:1.05rem;">修改密码</h3>
+                            <p class="card-subtitle" style="margin-bottom:18px;">新密码会加密保存在本地数据库里，之后登录将使用新密码。</p>
+                            <form id="passwordForm">
+                                <div class="field">
+                                    <label for="currentPassword">当前密码</label>
+                                    <input id="currentPassword" type="password" required>
+                                </div>
+                                <div class="field">
+                                    <label for="newPassword">新密码</label>
+                                    <input id="newPassword" type="password" minlength="8" required>
+                                </div>
+                                <div class="field">
+                                    <label for="confirmPassword">确认新密码</label>
+                                    <input id="confirmPassword" type="password" minlength="8" required>
+                                </div>
+                                <div class="btn-row">
+                                    <button type="submit" class="btn-primary">更新密码</button>
+                                </div>
+                            </form>
+                            <div id="passwordMessage" class="message"></div>
+                        </div>
+
+                        <div class="divider"></div>
+
+                        <div>
+                            <div class="status-row">
+                                <h3 class="card-title" style="font-size:1.05rem;">登录 2FA</h3>
+                                <div id="twoFactorBadge" class="status-badge disabled">未启用</div>
+                            </div>
+                            <p class="card-subtitle" style="margin-bottom:18px;">支持 Google Authenticator、Microsoft Authenticator 等 TOTP 应用。启用后，登录会先校验账号密码，再校验 6 位动态验证码。</p>
+
+                            <form id="twoFactorSetupForm">
+                                <div class="field">
+                                    <label for="twoFactorCurrentPassword">当前密码</label>
+                                    <input id="twoFactorCurrentPassword" type="password" required>
+                                </div>
+                                <div class="inline-actions">
+                                    <button type="submit" class="btn-primary">生成 2FA 密钥</button>
+                                </div>
+                            </form>
+
+                            <div id="twoFactorSetupPanel" class="hidden section">
+                                <div class="field">
+                                    <label for="twoFactorSecret">手动录入密钥</label>
+                                    <div id="twoFactorSecret" class="mono-box"></div>
+                                    <div class="field-hint">如果认证器不能扫码，可以手动输入上面的 Base32 密钥。</div>
+                                </div>
+                                <div class="field">
+                                    <label for="twoFactorUri">绑定 URI</label>
+                                    <div id="twoFactorUri" class="mono-box"></div>
+                                </div>
+                                <form id="twoFactorEnableForm">
+                                    <div class="field">
+                                        <label for="twoFactorOtpCode">动态验证码</label>
+                                        <input id="twoFactorOtpCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="输入认证器中的 6 位验证码" required>
+                                    </div>
+                                    <div class="btn-row">
+                                        <button type="submit" class="btn-primary">确认启用 2FA</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <form id="twoFactorDisableForm" class="hidden section">
+                                <div class="field">
+                                    <label for="twoFactorDisablePassword">当前密码</label>
+                                    <input id="twoFactorDisablePassword" type="password">
+                                </div>
+                                <div class="field">
+                                    <label for="twoFactorDisableCode">动态验证码</label>
+                                    <input id="twoFactorDisableCode" type="text" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" placeholder="输入当前 2FA 验证码">
+                                </div>
+                                <div class="btn-row">
+                                    <button type="submit" class="btn-danger">关闭 2FA</button>
+                                </div>
+                            </form>
+                            <div id="twoFactorMessage" class="message"></div>
+                        </div>
+                    </div>
+                </section>
             </div>
         </section>
     </div>
@@ -615,6 +750,18 @@
         const newPasswordInput = document.getElementById('newPassword');
         const confirmPasswordInput = document.getElementById('confirmPassword');
         const passwordMessage = document.getElementById('passwordMessage');
+        const twoFactorBadge = document.getElementById('twoFactorBadge');
+        const twoFactorMessage = document.getElementById('twoFactorMessage');
+        const twoFactorSetupForm = document.getElementById('twoFactorSetupForm');
+        const twoFactorCurrentPassword = document.getElementById('twoFactorCurrentPassword');
+        const twoFactorSetupPanel = document.getElementById('twoFactorSetupPanel');
+        const twoFactorSecret = document.getElementById('twoFactorSecret');
+        const twoFactorUri = document.getElementById('twoFactorUri');
+        const twoFactorEnableForm = document.getElementById('twoFactorEnableForm');
+        const twoFactorOtpCode = document.getElementById('twoFactorOtpCode');
+        const twoFactorDisableForm = document.getElementById('twoFactorDisableForm');
+        const twoFactorDisablePassword = document.getElementById('twoFactorDisablePassword');
+        const twoFactorDisableCode = document.getElementById('twoFactorDisableCode');
 
         let currentPageServers = [];
 
@@ -644,6 +791,16 @@
         function setPasswordMessage(text, type = 'success') {
             passwordMessage.textContent = text;
             passwordMessage.className = `message visible ${type}`;
+        }
+
+        function setTwoFactorMessage(text, type = 'success') {
+            twoFactorMessage.textContent = text;
+            twoFactorMessage.className = `message visible ${type}`;
+        }
+
+        function clearTwoFactorMessage() {
+            twoFactorMessage.textContent = '';
+            twoFactorMessage.className = 'message';
         }
 
         function applyTheme(theme) {
@@ -1093,6 +1250,105 @@
             }
         }
 
+        function updateTwoFactorStatus(enabled) {
+            twoFactorBadge.className = `status-badge ${enabled ? 'enabled' : 'disabled'}`;
+            twoFactorBadge.textContent = enabled ? '已启用' : '未启用';
+            twoFactorDisableForm.classList.toggle('hidden', !enabled);
+            twoFactorSetupForm.classList.toggle('hidden', enabled);
+            if (enabled) {
+                twoFactorSetupPanel.classList.add('hidden');
+            }
+        }
+
+        async function loadTwoFactorStatus() {
+            try {
+                const response = await fetch('/api/account/2fa/status');
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || '加载 2FA 状态失败');
+                updateTwoFactorStatus(Boolean(data.enabled));
+            } catch (error) {
+                setTwoFactorMessage(error.message, 'error');
+            }
+        }
+
+        async function startTwoFactorSetup(event) {
+            event.preventDefault();
+            clearTwoFactorMessage();
+
+            try {
+                const response = await fetch('/api/account/2fa/setup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: twoFactorCurrentPassword.value
+                    })
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || '生成 2FA 密钥失败');
+
+                twoFactorSecret.textContent = data.secret;
+                twoFactorUri.textContent = data.otpauth_uri;
+                twoFactorSetupPanel.classList.remove('hidden');
+                twoFactorOtpCode.value = '';
+                setTwoFactorMessage('密钥已生成，请先在认证器中完成绑定，再输入 6 位验证码确认启用。');
+            } catch (error) {
+                setTwoFactorMessage(error.message, 'error');
+            }
+        }
+
+        async function enableTwoFactor(event) {
+            event.preventDefault();
+            clearTwoFactorMessage();
+
+            try {
+                const response = await fetch('/api/account/2fa/enable', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: twoFactorCurrentPassword.value,
+                        otp_code: twoFactorOtpCode.value
+                    })
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || '启用 2FA 失败');
+
+                twoFactorCurrentPassword.value = '';
+                twoFactorOtpCode.value = '';
+                twoFactorSecret.textContent = '';
+                twoFactorUri.textContent = '';
+                twoFactorSetupPanel.classList.add('hidden');
+                updateTwoFactorStatus(true);
+                setTwoFactorMessage('2FA 已启用，之后登录需要输入动态验证码。');
+            } catch (error) {
+                setTwoFactorMessage(error.message, 'error');
+            }
+        }
+
+        async function disableTwoFactor(event) {
+            event.preventDefault();
+            clearTwoFactorMessage();
+
+            try {
+                const response = await fetch('/api/account/2fa/disable', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        current_password: twoFactorDisablePassword.value,
+                        otp_code: twoFactorDisableCode.value
+                    })
+                });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || '关闭 2FA 失败');
+
+                twoFactorDisablePassword.value = '';
+                twoFactorDisableCode.value = '';
+                updateTwoFactorStatus(false);
+                setTwoFactorMessage('2FA 已关闭。');
+            } catch (error) {
+                setTwoFactorMessage(error.message, 'error');
+            }
+        }
+
         function updateTargetMode(mode) {
             state.currentMode = mode;
             specificTargets.classList.toggle('hidden', mode !== 'specific');
@@ -1197,6 +1453,9 @@
         });
         serverForm.addEventListener('submit', saveServer);
         passwordForm.addEventListener('submit', updatePassword);
+        twoFactorSetupForm.addEventListener('submit', startTwoFactorSetup);
+        twoFactorEnableForm.addEventListener('submit', enableTwoFactor);
+        twoFactorDisableForm.addEventListener('submit', disableTwoFactor);
         resetServerBtn.addEventListener('click', () => {
             resetServerForm();
             clearMessage();
@@ -1208,6 +1467,7 @@
         updateTargetMode('all');
         loadDomains();
         loadServers();
+        loadTwoFactorStatus();
     </script>
 </body>
 </html>

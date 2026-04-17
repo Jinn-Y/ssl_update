@@ -1,0 +1,7 @@
+.venv/
+*.log
+__pycache__/
+*.pyc
+web_cert_sync/.tmp/
+web_cert_sync/tmp_test_auth/
+web_cert_sync/tmp*/

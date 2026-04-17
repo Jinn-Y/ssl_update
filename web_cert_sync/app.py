@@ -6,6 +6,14 @@ import re
 import datetime
 import subprocess
 import sqlite3
+import base64
+import binascii
+import hashlib
+import hmac
+import secrets
+import struct
+import time
+from urllib.parse import quote
 from werkzeug.security import generate_password_hash, check_password_hash
 try:
     from .ssh_utils import SyncManager
@@ -19,6 +27,11 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'default-secret-key-change-in-production')
 FAVICON_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'secret.png')
+TOTP_VALID_WINDOW = 1
+TOTP_STEP_SECONDS = 30
+TOTP_DIGITS = 6
+TOTP_ISSUER = os.getenv('TOTP_ISSUER', 'Certificate Sync Console')
+TOTP_PENDING_TIMEOUT_SECONDS = 300
 
 # Auth Helper
 def check_auth(username, password):
@@ -33,6 +46,84 @@ def check_auth(username, password):
         return check_password_hash(password_hash, password)
 
     return password == config.BASIC_AUTH_PASSWORD
+
+
+def get_repository():
+    return ServerRepository(Config())
+
+
+def get_totp_secret():
+    return get_repository().get_setting('auth_totp_secret')
+
+
+def is_totp_enabled():
+    return bool(get_repository().get_setting('auth_totp_enabled', '0') == '1' and get_totp_secret())
+
+
+def generate_totp_secret():
+    return base64.b32encode(secrets.token_bytes(20)).decode('ascii').rstrip('=')
+
+
+def normalize_totp_secret(secret):
+    normalized = re.sub(r'\s+', '', (secret or '').upper())
+    if not normalized:
+        raise ValueError('2FA secret is missing')
+    padding = '=' * ((8 - len(normalized) % 8) % 8)
+    return normalized + padding
+
+
+def hotp_token(secret, counter, digits=TOTP_DIGITS):
+    key = base64.b32decode(normalize_totp_secret(secret), casefold=True)
+    digest = hmac.new(key, struct.pack('>Q', counter), hashlib.sha1).digest()
+    offset = digest[-1] & 0x0F
+    code = struct.unpack('>I', digest[offset:offset + 4])[0] & 0x7fffffff
+    return str(code % (10 ** digits)).zfill(digits)
+
+
+def verify_totp_code(secret, code, valid_window=TOTP_VALID_WINDOW, time_step=TOTP_STEP_SECONDS):
+    if not secret:
+        return False
+
+    candidate = re.sub(r'\s+', '', (code or ''))
+    if not re.fullmatch(r'\d{6}', candidate):
+        return False
+
+    current_counter = int(time.time() // time_step)
+    try:
+        for offset in range(-valid_window, valid_window + 1):
+            if hmac.compare_digest(hotp_token(secret, current_counter + offset), candidate):
+                return True
+    except (binascii.Error, ValueError):
+        return False
+    return False
+
+
+def build_totp_uri(username, secret):
+    account_name = quote(f'{TOTP_ISSUER}:{username}')
+    issuer = quote(TOTP_ISSUER)
+    return f'otpauth://totp/{account_name}?secret={secret}&issuer={issuer}&algorithm=SHA1&digits={TOTP_DIGITS}&period={TOTP_STEP_SECONDS}'
+
+
+def clear_pending_2fa():
+    session.pop('pending_2fa_user', None)
+    session.pop('pending_2fa_at', None)
+
+
+def start_authenticated_session(username):
+    clear_pending_2fa()
+    session['logged_in'] = True
+    session['auth_username'] = username
+
+
+def is_pending_2fa_valid():
+    pending_user = session.get('pending_2fa_user')
+    pending_at = session.get('pending_2fa_at')
+    if not pending_user or not pending_at:
+        return False
+    if time.time() - pending_at > TOTP_PENDING_TIMEOUT_SECONDS:
+        clear_pending_2fa()
+        return False
+    return True
 
 def requires_auth(f):
     from functools import wraps
@@ -133,19 +224,48 @@ def stream_sync_response(domain, targets):
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
+    requires_2fa = is_totp_enabled()
+    pending_2fa = is_pending_2fa_valid()
+
     if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        if check_auth(username, password):
-            session['logged_in'] = True
-            return redirect(url_for('index'))
+        step = request.form.get('step', 'password')
+        if step == 'totp':
+            otp_code = request.form.get('otp_code', '')
+            pending_user = session.get('pending_2fa_user')
+            if not pending_user or not is_pending_2fa_valid():
+                error = '验证码已过期，请重新输入用户名和密码'
+            elif verify_totp_code(get_totp_secret(), otp_code):
+                start_authenticated_session(pending_user)
+                return redirect(url_for('index'))
+            else:
+                error = '动态验证码错误'
+                pending_2fa = True
         else:
-            error = '用户名或密码错误'
-    return render_template('login.html', error=error)
+            username = request.form.get('username', '')
+            password = request.form.get('password', '')
+            if check_auth(username, password):
+                if requires_2fa:
+                    session['pending_2fa_user'] = username
+                    session['pending_2fa_at'] = time.time()
+                    pending_2fa = True
+                else:
+                    start_authenticated_session(username)
+                    return redirect(url_for('index'))
+            else:
+                error = '用户名或密码错误'
+    return render_template(
+        'login.html',
+        error=error,
+        pending_2fa=pending_2fa,
+        requires_2fa=requires_2fa,
+        pending_username=session.get('pending_2fa_user', Config().BASIC_AUTH_USERNAME),
+    )
 
 @app.route('/logout')
 def logout():
     session.pop('logged_in', None)
+    session.pop('auth_username', None)
+    clear_pending_2fa()
     return redirect(url_for('login'))
 
 
@@ -338,6 +458,96 @@ def change_password():
         return jsonify({'success': False, 'error': str(e)}), 400
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/account/2fa/status', methods=['GET'])
+@requires_auth
+def get_2fa_status():
+    config = Config()
+    repository = ServerRepository(config)
+    secret = repository.get_setting('auth_totp_secret')
+    enabled = repository.get_setting('auth_totp_enabled', '0') == '1' and bool(secret)
+
+    return jsonify({
+        'success': True,
+        'enabled': enabled,
+        'secret_configured': bool(secret),
+        'issuer': TOTP_ISSUER,
+        'account_name': config.BASIC_AUTH_USERNAME,
+    })
+
+
+@app.route('/api/account/2fa/setup', methods=['POST'])
+@requires_auth
+def setup_2fa():
+    config = Config()
+    repository = ServerRepository(config)
+    data = request.get_json() or {}
+    current_password = data.get('current_password', '')
+
+    if not check_auth(config.BASIC_AUTH_USERNAME, current_password):
+        return jsonify({'success': False, 'error': 'Current password is incorrect'}), 400
+
+    secret = generate_totp_secret()
+    repository.set_setting('auth_totp_pending_secret', secret)
+
+    return jsonify({
+        'success': True,
+        'secret': secret,
+        'issuer': TOTP_ISSUER,
+        'account_name': config.BASIC_AUTH_USERNAME,
+        'otpauth_uri': build_totp_uri(config.BASIC_AUTH_USERNAME, secret),
+    })
+
+
+@app.route('/api/account/2fa/enable', methods=['POST'])
+@requires_auth
+def enable_2fa():
+    config = Config()
+    repository = ServerRepository(config)
+    data = request.get_json() or {}
+    current_password = data.get('current_password', '')
+    otp_code = data.get('otp_code', '')
+
+    if not check_auth(config.BASIC_AUTH_USERNAME, current_password):
+        return jsonify({'success': False, 'error': 'Current password is incorrect'}), 400
+
+    pending_secret = repository.get_setting('auth_totp_pending_secret')
+    if not pending_secret:
+        return jsonify({'success': False, 'error': 'No pending 2FA setup found'}), 400
+
+    if not verify_totp_code(pending_secret, otp_code):
+        return jsonify({'success': False, 'error': 'Dynamic verification code is incorrect'}), 400
+
+    repository.set_setting('auth_totp_secret', pending_secret)
+    repository.set_setting('auth_totp_enabled', '1')
+    repository.set_setting('auth_totp_pending_secret', '')
+    return jsonify({'success': True, 'message': '2FA has been enabled'})
+
+
+@app.route('/api/account/2fa/disable', methods=['POST'])
+@requires_auth
+def disable_2fa():
+    config = Config()
+    repository = ServerRepository(config)
+    data = request.get_json() or {}
+    current_password = data.get('current_password', '')
+    otp_code = data.get('otp_code', '')
+    secret = repository.get_setting('auth_totp_secret')
+
+    if not check_auth(config.BASIC_AUTH_USERNAME, current_password):
+        return jsonify({'success': False, 'error': 'Current password is incorrect'}), 400
+
+    if not secret or repository.get_setting('auth_totp_enabled', '0') != '1':
+        return jsonify({'success': False, 'error': '2FA is not enabled'}), 400
+
+    if not verify_totp_code(secret, otp_code):
+        return jsonify({'success': False, 'error': 'Dynamic verification code is incorrect'}), 400
+
+    repository.set_setting('auth_totp_enabled', '0')
+    repository.set_setting('auth_totp_secret', '')
+    repository.set_setting('auth_totp_pending_secret', '')
+    return jsonify({'success': True, 'message': '2FA has been disabled'})
 
 
 @app.route('/api/servers/<int:server_id>/sync', methods=['POST'])

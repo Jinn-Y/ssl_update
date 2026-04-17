@@ -249,6 +249,12 @@
             color: var(--heading);
         }
 
+        .field-copy {
+            color: var(--muted);
+            font-size: 0.88rem;
+            line-height: 1.55;
+        }
+
         input {
             width: 100%;
             border: 1px solid var(--line);
@@ -305,6 +311,13 @@
             line-height: 1.55;
         }
 
+        .otp-input {
+            letter-spacing: 0.35em;
+            text-align: center;
+            font-size: 1.25rem;
+            font-variant-numeric: tabular-nums;
+        }
+
         @media (max-width: 860px) {
             .shell {
                 grid-template-columns: 1fr;
@@ -346,14 +359,28 @@
         </section>
 
         <section class="panel">
-            <h2>系统登录</h2>
-            <p class="panel-copy">输入账号和密码，进入证书同步管理台。</p>
+            <h2>{% if pending_2fa %}二次验证{% else %}系统登录{% endif %}</h2>
+            <p class="panel-copy">
+                {% if pending_2fa %}
+                账号密码已通过，请输入认证器中的 6 位动态验证码。
+                {% else %}
+                输入账号和密码进入证书同步管理台。{% if requires_2fa %}本系统已启用 2FA，登录后还需要动态验证码。{% endif %}
+                {% endif %}
+            </p>
 
             {% if error %}
             <div class="error-message">{{ error }}</div>
             {% endif %}
 
             <form method="POST" action="/login">
+                {% if pending_2fa %}
+                <input type="hidden" name="step" value="totp">
+                <div class="field">
+                    <label for="otp_code">动态验证码</label>
+                    <input type="text" id="otp_code" name="otp_code" class="otp-input" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" placeholder="000000" required autofocus>
+                    <div class="field-copy">当前账号：{{ pending_username }}。验证码每 30 秒刷新一次。</div>
+                </div>
+                {% else %}
                 <div class="field">
                     <label for="username">用户名</label>
                     <input type="text" id="username" name="username" required autofocus>
@@ -362,10 +389,13 @@
                     <label for="password">密码</label>
                     <input type="password" id="password" name="password" required>
                 </div>
+                {% endif %}
                 <button type="submit" class="submit-btn">登录</button>
             </form>
 
-            <div class="footnote">界面会自动适配浅色、深色和系统主题，无需单独切换。</div>
+            <div class="footnote">
+                界面会自动适配浅色、深色和系统主题，无需单独切换。{% if pending_2fa %}如果验证码失效，重新输入一次账号密码即可。{% endif %}
+            </div>
         </section>
     </div>
     <script>
