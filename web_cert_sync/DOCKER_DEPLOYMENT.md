@@ -13,8 +13,13 @@
 
 ```bash
 cd web_cert_sync
-docker-compose up -d
+docker compose up -d
 ```
+
+说明：
+
+- SQLite 数据库现在存放在 Docker 命名卷 `cert-sync-data` 中，不再依赖当前代码目录。
+- 即使你删除并重新 clone `web_cert_sync` 目录，只要没有手动删除这个卷，数据库数据就会保留。
 
 ### 3. 访问应用
 
@@ -36,7 +41,7 @@ MAX_JOBS=10
 
 ### 卷挂载
 
-docker-compose.yml 中已配置以下卷挂载：
+`docker compose` 配置中已包含以下卷挂载：
 
 1. **SSH 密钥**: `~/.ssh:/root/.ssh:ro`
    - 用于 SSH 连接到远程服务器
@@ -50,35 +55,58 @@ docker-compose.yml 中已配置以下卷挂载：
    - 目标服务器列表
    - **必须可读写** (不要加 :ro)
 
+4. **SQLite 数据库卷**: `cert-sync-data:/app/data`
+   - 用于持久化 `servers.db`
+   - 重新构建容器、重新 `clone` 代码目录后依然保留
+   - 只有执行 `docker compose down -v` 或手动删除卷时才会丢失
+
 ### 端口映射
 
 - 容器端口: 5000
-- 主机端口: 5000（可在 docker-compose.yml 中修改）
+- 主机端口: 5000（可在 `docker-compose.yml` 中修改）
 
 ## 常用命令
 
 ### 查看日志
 
 ```bash
-docker-compose logs -f cert-sync
+docker compose logs -f cert-sync
 ```
 
 ### 重启服务
 
 ```bash
-docker-compose restart
+docker compose restart
 ```
 
 ### 停止服务
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### 重新构建
 
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
+```
+
+### 查看数据库卷
+
+```bash
+docker volume ls | grep cert-sync-data
+docker volume inspect cert-sync-data
+```
+
+### 迁移旧目录数据库到卷
+
+如果你之前把数据库放在仓库目录的 `./data/servers.db`，可以先在首次升级前备份：
+
+```bash
+cp -r data data.bak
+docker compose up -d --build
+docker cp data.bak/servers.db cert-sync-web:/app/data/servers.db
+docker restart cert-sync-web
 ```
 
 ### 进入容器
@@ -122,7 +150,7 @@ certbot --nginx -d cert-sync.example.com
 
 ### 3. 资源限制
 
-在 docker-compose.yml 中添加资源限制：
+在 `docker-compose.yml` 中添加资源限制：
 
 ```yaml
 services:
@@ -159,10 +187,10 @@ services:
 
 ```bash
 # 查看详细日志
-docker-compose logs cert-sync
+docker compose logs cert-sync
 
 # 检查配置文件
-docker-compose config
+docker compose config
 ```
 
 ### SSH 连接失败

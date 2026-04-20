@@ -107,19 +107,25 @@ REMOTE_USER=root
 2. **构建并启动容器**
 
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
+
+说明：
+
+- SQLite 数据库会持久化到 Docker 命名卷 `cert-sync-data`
+- 重新构建容器或重新 clone 代码目录时不会自动重置数据库
+- 只有执行 `docker compose down -v` 或手动删除卷时，数据库才会被清空
 
 3. **查看日志**
 
 ```bash
-docker-compose logs -f
+docker compose logs -f
 ```
 
 4. **停止服务**
 
 ```bash
-docker-compose down
+docker compose down
 ```
 
 ### 手动 Docker 部署
