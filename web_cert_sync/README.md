@@ -167,6 +167,8 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
         
         # SSE 支持
         proxy_buffering off;
@@ -183,3 +185,4 @@ server {
 - 确保运行应用的服务器已配置好到目标服务器的 SSH 密钥认证
 - 生产环境建议使用 Gunicorn 或 uWSGI 部署
 - 建议配置 Nginx 反向代理并启用 HTTPS
+- 如果 Passkey 注册时报 `Passkey origin mismatch`，请确认访问域名与后端识别的来源一致，并在 `.env` 中显式设置 `PASSKEY_RP_ID` 与 `PASSKEY_ORIGIN`

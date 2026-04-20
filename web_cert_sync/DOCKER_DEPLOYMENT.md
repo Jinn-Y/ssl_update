@@ -129,6 +129,8 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
         
         # SSE 支持
         proxy_buffering off;
@@ -211,3 +213,18 @@ docker compose config
 2. **HTTPS**: 生产环境必须使用 HTTPS
 3. **密钥保护**: SSH 密钥以只读模式挂载
 4. **定期更新**: 定期更新 Docker 镜像和依赖包
+
+## Passkey 说明
+
+如果你启用了 Passkey，建议在 `.env` 中显式配置：
+
+```bash
+PASSKEY_RP_ID=cert-sync.example.com
+PASSKEY_ORIGIN=https://cert-sync.example.com
+```
+
+如果注册时报 `Passkey origin mismatch`，通常是因为：
+
+1. 浏览器访问地址和后端识别到的域名或协议不一致
+2. 反向代理没有透传 `X-Forwarded-Proto` / `X-Forwarded-Host`
+3. 你在 `http://IP:5000` 和 `https://域名` 之间混用了入口

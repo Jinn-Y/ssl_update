@@ -18,6 +18,7 @@ from urllib.parse import quote
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
+from werkzeug.middleware.proxy_fix import ProxyFix
 from werkzeug.security import generate_password_hash, check_password_hash
 try:
     from .ssh_utils import SyncManager
@@ -30,6 +31,7 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'default-secret-key-change-in-production')
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 FAVICON_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'secret.png')
 TOTP_VALID_WINDOW = 1
 TOTP_STEP_SECONDS = 30
