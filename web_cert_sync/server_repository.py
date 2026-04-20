@@ -55,6 +55,24 @@ class ServerRepository:
                 )
                 """
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS passkeys (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    label TEXT NOT NULL DEFAULT '',
+                    credential_id TEXT NOT NULL UNIQUE,
+                    public_key_pem TEXT NOT NULL,
+                    sign_count INTEGER NOT NULL DEFAULT 0,
+                    transports TEXT NOT NULL DEFAULT '',
+                    last_used_at TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_passkeys_credential_id ON passkeys(credential_id)"
+            )
 
         self._migrate_from_text_file_if_needed()
 
@@ -245,6 +263,67 @@ class ServerRepository:
                 (key, value),
             )
 
+    def list_passkeys(self) -> List[Dict]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                """
+                SELECT id, label, credential_id, public_key_pem, sign_count, transports,
+                       last_used_at, created_at, updated_at
+                FROM passkeys
+                ORDER BY created_at ASC, id ASC
+                """
+            ).fetchall()
+        return [self._passkey_row_to_dict(row) for row in rows]
+
+    def get_passkey_by_credential_id(self, credential_id: str):
+        with self._connect() as conn:
+            row = conn.execute(
+                """
+                SELECT id, label, credential_id, public_key_pem, sign_count, transports,
+                       last_used_at, created_at, updated_at
+                FROM passkeys
+                WHERE credential_id = ?
+                """,
+                (credential_id,),
+            ).fetchone()
+        return self._passkey_row_to_dict(row) if row else None
+
+    def create_passkey(self, label: str, credential_id: str, public_key_pem: str, sign_count: int = 0, transports: str = ""):
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                INSERT INTO passkeys (label, credential_id, public_key_pem, sign_count, transports, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """,
+                (label, credential_id, public_key_pem, sign_count, transports),
+            )
+            row = conn.execute(
+                """
+                SELECT id, label, credential_id, public_key_pem, sign_count, transports,
+                       last_used_at, created_at, updated_at
+                FROM passkeys
+                WHERE id = ?
+                """,
+                (cursor.lastrowid,),
+            ).fetchone()
+        return self._passkey_row_to_dict(row)
+
+    def update_passkey_usage(self, passkey_id: int, sign_count: int):
+        with self._connect() as conn:
+            conn.execute(
+                """
+                UPDATE passkeys
+                SET sign_count = ?, last_used_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+                """,
+                (sign_count, passkey_id),
+            )
+
+    def delete_passkey(self, passkey_id: int):
+        with self._connect() as conn:
+            cursor = conn.execute("DELETE FROM passkeys WHERE id = ?", (passkey_id,))
+        return cursor.rowcount > 0
+
     @staticmethod
     def _row_to_dict(row: sqlite3.Row) -> Dict:
         return {
@@ -254,6 +333,20 @@ class ServerRepository:
             "enabled": bool(row["enabled"]),
             "group_name": row["group_name"],
             "remark": row["remark"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
+    @staticmethod
+    def _passkey_row_to_dict(row: sqlite3.Row) -> Dict:
+        return {
+            "id": row["id"],
+            "label": row["label"],
+            "credential_id": row["credential_id"],
+            "public_key_pem": row["public_key_pem"],
+            "sign_count": row["sign_count"],
+            "transports": row["transports"],
+            "last_used_at": row["last_used_at"],
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
         }

@@ -10,10 +10,14 @@ import base64
 import binascii
 import hashlib
 import hmac
+import json
 import secrets
 import struct
 import time
 from urllib.parse import quote
+from cryptography.exceptions import InvalidSignature
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import ec, padding, rsa
 from werkzeug.security import generate_password_hash, check_password_hash
 try:
     from .ssh_utils import SyncManager
@@ -32,6 +36,10 @@ TOTP_STEP_SECONDS = 30
 TOTP_DIGITS = 6
 TOTP_ISSUER = os.getenv('TOTP_ISSUER', 'Certificate Sync Console')
 TOTP_PENDING_TIMEOUT_SECONDS = 300
+PASSKEY_CHALLENGE_TIMEOUT_SECONDS = 300
+PASSKEY_RP_NAME = os.getenv('PASSKEY_RP_NAME', 'Certificate Sync Console')
+PASSKEY_RP_ID_OVERRIDE = os.getenv('PASSKEY_RP_ID', '').strip()
+PASSKEY_ORIGIN_OVERRIDE = os.getenv('PASSKEY_ORIGIN', '').strip()
 
 # Auth Helper
 def check_auth(username, password):
@@ -111,6 +119,7 @@ def clear_pending_2fa():
 
 def start_authenticated_session(username):
     clear_pending_2fa()
+    clear_passkey_state()
     session['logged_in'] = True
     session['auth_username'] = username
 
@@ -124,6 +133,268 @@ def is_pending_2fa_valid():
         clear_pending_2fa()
         return False
     return True
+
+
+def base64url_encode(value):
+    if isinstance(value, str):
+        value = value.encode('utf-8')
+    return base64.urlsafe_b64encode(value).rstrip(b'=').decode('ascii')
+
+
+def base64url_decode(value):
+    if not value:
+        return b''
+    padding_chars = '=' * ((4 - len(value) % 4) % 4)
+    return base64.urlsafe_b64decode((value + padding_chars).encode('ascii'))
+
+
+def get_passkey_rp_id():
+    if PASSKEY_RP_ID_OVERRIDE:
+        return PASSKEY_RP_ID_OVERRIDE
+    return (request.host.split(':', 1)[0] or 'localhost').lower()
+
+
+def get_passkey_origin():
+    if PASSKEY_ORIGIN_OVERRIDE:
+        return PASSKEY_ORIGIN_OVERRIDE
+    return f'{request.scheme}://{request.host}'
+
+
+def sha256_bytes(value):
+    return hashlib.sha256(value).digest()
+
+
+def current_unix_time():
+    return int(time.time())
+
+
+def clear_passkey_state():
+    session.pop('passkey_registration', None)
+    session.pop('passkey_authentication', None)
+
+
+def create_passkey_challenge():
+    return base64url_encode(secrets.token_bytes(32))
+
+
+def set_passkey_registration_state(challenge, rp_id, origin):
+    session['passkey_registration'] = {
+        'challenge': challenge,
+        'rp_id': rp_id,
+        'origin': origin,
+        'expires_at': current_unix_time() + PASSKEY_CHALLENGE_TIMEOUT_SECONDS,
+    }
+
+
+def get_valid_passkey_registration_state():
+    state = session.get('passkey_registration')
+    if not state:
+        return None
+    if state.get('expires_at', 0) < current_unix_time():
+        session.pop('passkey_registration', None)
+        return None
+    return state
+
+
+def set_passkey_authentication_state(challenge, rp_id, origin):
+    session['passkey_authentication'] = {
+        'challenge': challenge,
+        'rp_id': rp_id,
+        'origin': origin,
+        'expires_at': current_unix_time() + PASSKEY_CHALLENGE_TIMEOUT_SECONDS,
+    }
+
+
+def get_valid_passkey_authentication_state():
+    state = session.get('passkey_authentication')
+    if not state:
+        return None
+    if state.get('expires_at', 0) < current_unix_time():
+        session.pop('passkey_authentication', None)
+        return None
+    return state
+
+
+def cbor_decode(data, start_index=0):
+    if start_index >= len(data):
+        raise ValueError('Unexpected end of CBOR data')
+
+    initial = data[start_index]
+    major_type = initial >> 5
+    additional = initial & 0x1F
+    index = start_index + 1
+
+    def read_length():
+        nonlocal index
+        if additional < 24:
+            return additional
+        if additional == 24:
+            length = data[index]
+            index += 1
+            return length
+        if additional == 25:
+            length = struct.unpack('>H', data[index:index + 2])[0]
+            index += 2
+            return length
+        if additional == 26:
+            length = struct.unpack('>I', data[index:index + 4])[0]
+            index += 4
+            return length
+        if additional == 27:
+            length = struct.unpack('>Q', data[index:index + 8])[0]
+            index += 8
+            return length
+        raise ValueError('Unsupported CBOR length encoding')
+
+    if major_type == 0:
+        return read_length(), index
+    if major_type == 1:
+        return -1 - read_length(), index
+    if major_type == 2:
+        length = read_length()
+        value = data[index:index + length]
+        return value, index + length
+    if major_type == 3:
+        length = read_length()
+        value = data[index:index + length].decode('utf-8')
+        return value, index + length
+    if major_type == 4:
+        length = read_length()
+        items = []
+        for _ in range(length):
+            value, index = cbor_decode(data, index)
+            items.append(value)
+        return items, index
+    if major_type == 5:
+        length = read_length()
+        mapping = {}
+        for _ in range(length):
+            key, index = cbor_decode(data, index)
+            value, index = cbor_decode(data, index)
+            mapping[key] = value
+        return mapping, index
+    if major_type == 6:
+        _ = read_length()
+        return cbor_decode(data, index)
+    if major_type == 7:
+        if additional == 20:
+            return False, index
+        if additional == 21:
+            return True, index
+        if additional == 22:
+            return None, index
+        raise ValueError('Unsupported CBOR simple value')
+
+    raise ValueError('Unsupported CBOR major type')
+
+
+def cose_key_to_pem(cose_key):
+    key_type = cose_key.get(1)
+    algorithm = cose_key.get(3)
+
+    if key_type == 2 and algorithm == -7:
+        x_coord = cose_key.get(-2)
+        y_coord = cose_key.get(-3)
+        if not x_coord or not y_coord:
+            raise ValueError('Invalid EC passkey public key')
+        public_numbers = ec.EllipticCurvePublicNumbers(
+            int.from_bytes(x_coord, 'big'),
+            int.from_bytes(y_coord, 'big'),
+            ec.SECP256R1(),
+        )
+        public_key = public_numbers.public_key()
+    elif key_type == 3 and algorithm == -257:
+        modulus = cose_key.get(-1)
+        exponent = cose_key.get(-2)
+        if not modulus or not exponent:
+            raise ValueError('Invalid RSA passkey public key')
+        public_numbers = rsa.RSAPublicNumbers(
+            int.from_bytes(exponent, 'big'),
+            int.from_bytes(modulus, 'big'),
+        )
+        public_key = public_numbers.public_key()
+    else:
+        raise ValueError('Unsupported passkey algorithm')
+
+    return public_key.public_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    ).decode('utf-8')
+
+
+def verify_passkey_signature(public_key_pem, signature, signed_bytes):
+    public_key = serialization.load_pem_public_key(public_key_pem.encode('utf-8'))
+
+    if isinstance(public_key, ec.EllipticCurvePublicKey):
+        public_key.verify(signature, signed_bytes, ec.ECDSA(hashes.SHA256()))
+        return
+
+    if isinstance(public_key, rsa.RSAPublicKey):
+        public_key.verify(signature, signed_bytes, padding.PKCS1v15(), hashes.SHA256())
+        return
+
+    raise ValueError('Unsupported passkey public key type')
+
+
+def parse_authenticator_data(auth_data, expect_attested_data=False):
+    if len(auth_data) < 37:
+        raise ValueError('Authenticator data is too short')
+
+    rp_id_hash = auth_data[:32]
+    flags = auth_data[32]
+    sign_count = struct.unpack('>I', auth_data[33:37])[0]
+    index = 37
+
+    result = {
+        'rp_id_hash': rp_id_hash,
+        'flags': flags,
+        'sign_count': sign_count,
+    }
+
+    if expect_attested_data:
+        if not (flags & 0x40):
+            raise ValueError('Passkey attested credential data is missing')
+        if len(auth_data) < index + 18:
+            raise ValueError('Attested credential data is incomplete')
+        aaguid = auth_data[index:index + 16]
+        index += 16
+        credential_id_length = struct.unpack('>H', auth_data[index:index + 2])[0]
+        index += 2
+        credential_id = auth_data[index:index + credential_id_length]
+        index += credential_id_length
+        cose_key, _ = cbor_decode(auth_data, index)
+        result.update({
+            'aaguid': aaguid,
+            'credential_id': credential_id,
+            'credential_public_key': cose_key,
+        })
+
+    return result
+
+
+def ensure_webauthn_client_data(client_data_json_b64, expected_type, expected_challenge, expected_origin):
+    client_data_json = base64url_decode(client_data_json_b64)
+    client_data = json.loads(client_data_json.decode('utf-8'))
+
+    if client_data.get('type') != expected_type:
+        raise ValueError('Unexpected passkey operation type')
+    if client_data.get('challenge') != expected_challenge:
+        raise ValueError('Passkey challenge mismatch')
+    if client_data.get('origin') != expected_origin:
+        raise ValueError('Passkey origin mismatch')
+
+    return client_data_json, client_data
+
+
+def build_passkey_descriptor(passkey):
+    descriptor = {
+        'id': passkey['credential_id'],
+        'type': 'public-key',
+    }
+    transports = [item for item in (passkey.get('transports') or '').split(',') if item]
+    if transports:
+        descriptor['transports'] = transports
+    return descriptor
 
 def requires_auth(f):
     from functools import wraps
@@ -266,7 +537,92 @@ def logout():
     session.pop('logged_in', None)
     session.pop('auth_username', None)
     clear_pending_2fa()
+    clear_passkey_state()
     return redirect(url_for('login'))
+
+
+@app.route('/api/passkeys/status', methods=['GET'])
+def get_passkey_public_status():
+    repository = get_repository()
+    return jsonify({
+        'success': True,
+        'available': len(repository.list_passkeys()) > 0,
+    })
+
+
+@app.route('/api/passkeys/auth/options', methods=['POST'])
+def begin_passkey_login():
+    repository = get_repository()
+    passkeys = repository.list_passkeys()
+    if not passkeys:
+        return jsonify({'success': False, 'error': 'No passkeys are registered yet'}), 400
+
+    rp_id = get_passkey_rp_id()
+    origin = get_passkey_origin()
+    challenge = create_passkey_challenge()
+    set_passkey_authentication_state(challenge, rp_id, origin)
+
+    return jsonify({
+        'success': True,
+        'publicKey': {
+            'challenge': challenge,
+            'rpId': rp_id,
+            'timeout': 60000,
+            'userVerification': 'preferred',
+            'allowCredentials': [build_passkey_descriptor(passkey) for passkey in passkeys],
+        },
+    })
+
+
+@app.route('/api/passkeys/auth/verify', methods=['POST'])
+def complete_passkey_login():
+    repository = get_repository()
+    state = get_valid_passkey_authentication_state()
+    if not state:
+        return jsonify({'success': False, 'error': 'Passkey login has expired, please try again'}), 400
+
+    try:
+        data = request.get_json() or {}
+        credential_id = data.get('id') or data.get('rawId') or ''
+        response = data.get('response') or {}
+
+        if data.get('type') != 'public-key' or not credential_id:
+            raise ValueError('Invalid passkey response')
+
+        passkey = repository.get_passkey_by_credential_id(credential_id)
+        if not passkey:
+            raise ValueError('Passkey credential was not found')
+
+        client_data_json, _ = ensure_webauthn_client_data(
+            response.get('clientDataJSON', ''),
+            'webauthn.get',
+            state['challenge'],
+            state['origin'],
+        )
+
+        authenticator_data = base64url_decode(response.get('authenticatorData', ''))
+        parsed_auth_data = parse_authenticator_data(authenticator_data)
+        if parsed_auth_data['rp_id_hash'] != sha256_bytes(state['rp_id'].encode('utf-8')):
+            raise ValueError('Passkey RP ID mismatch')
+        if not (parsed_auth_data['flags'] & 0x01):
+            raise ValueError('Passkey user presence check failed')
+
+        signature = base64url_decode(response.get('signature', ''))
+        signed_bytes = authenticator_data + sha256_bytes(client_data_json)
+        verify_passkey_signature(passkey['public_key_pem'], signature, signed_bytes)
+
+        new_sign_count = parsed_auth_data['sign_count']
+        if passkey['sign_count'] and new_sign_count and new_sign_count <= passkey['sign_count']:
+            raise ValueError('Passkey sign counter check failed')
+
+        repository.update_passkey_usage(passkey['id'], max(passkey['sign_count'], new_sign_count))
+        clear_passkey_state()
+        start_authenticated_session(Config().BASIC_AUTH_USERNAME)
+        return jsonify({'success': True, 'redirect': url_for('index')})
+    except (InvalidSignature, ValueError, KeyError, json.JSONDecodeError, binascii.Error) as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 def validate_new_password(new_password, confirm_password):
@@ -458,6 +814,147 @@ def change_password():
         return jsonify({'success': False, 'error': str(e)}), 400
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/account/passkeys', methods=['GET'])
+@requires_auth
+def list_account_passkeys():
+    repository = get_repository()
+    passkeys = repository.list_passkeys()
+    return jsonify({
+        'success': True,
+        'items': [
+            {
+                'id': item['id'],
+                'label': item['label'],
+                'credential_id': item['credential_id'],
+                'sign_count': item['sign_count'],
+                'last_used_at': item['last_used_at'],
+                'created_at': item['created_at'],
+                'updated_at': item['updated_at'],
+                'transports': [value for value in (item.get('transports') or '').split(',') if value],
+            }
+            for item in passkeys
+        ],
+    })
+
+
+@app.route('/api/account/passkeys/register/options', methods=['POST'])
+@requires_auth
+def begin_passkey_registration():
+    repository = get_repository()
+    rp_id = get_passkey_rp_id()
+    origin = get_passkey_origin()
+    challenge = create_passkey_challenge()
+    set_passkey_registration_state(challenge, rp_id, origin)
+
+    user_id = base64url_encode(Config().BASIC_AUTH_USERNAME)
+    passkeys = repository.list_passkeys()
+
+    return jsonify({
+        'success': True,
+        'publicKey': {
+            'challenge': challenge,
+            'rp': {
+                'name': PASSKEY_RP_NAME,
+                'id': rp_id,
+            },
+            'user': {
+                'id': user_id,
+                'name': Config().BASIC_AUTH_USERNAME,
+                'displayName': Config().BASIC_AUTH_USERNAME,
+            },
+            'pubKeyCredParams': [
+                {'type': 'public-key', 'alg': -7},
+                {'type': 'public-key', 'alg': -257},
+            ],
+            'timeout': 60000,
+            'attestation': 'none',
+            'authenticatorSelection': {
+                'residentKey': 'preferred',
+                'userVerification': 'preferred',
+            },
+            'excludeCredentials': [build_passkey_descriptor(passkey) for passkey in passkeys],
+        },
+    })
+
+
+@app.route('/api/account/passkeys/register/verify', methods=['POST'])
+@requires_auth
+def complete_passkey_registration():
+    repository = get_repository()
+    state = get_valid_passkey_registration_state()
+    if not state:
+        return jsonify({'success': False, 'error': 'Passkey registration has expired, please try again'}), 400
+
+    try:
+        data = request.get_json() or {}
+        response = data.get('response') or {}
+        label = (data.get('label') or '').strip() or f'Passkey {datetime.datetime.now().strftime("%Y-%m-%d %H:%M")}'
+
+        if data.get('type') != 'public-key':
+            raise ValueError('Invalid passkey registration type')
+
+        client_data_json, _ = ensure_webauthn_client_data(
+            response.get('clientDataJSON', ''),
+            'webauthn.create',
+            state['challenge'],
+            state['origin'],
+        )
+        _ = client_data_json
+        attestation_object = base64url_decode(response.get('attestationObject', ''))
+        attestation, _ = cbor_decode(attestation_object)
+        auth_data = attestation.get('authData')
+        if not auth_data:
+            raise ValueError('Passkey attestation data is missing')
+
+        parsed_auth_data = parse_authenticator_data(auth_data, expect_attested_data=True)
+        if parsed_auth_data['rp_id_hash'] != sha256_bytes(state['rp_id'].encode('utf-8')):
+            raise ValueError('Passkey RP ID mismatch')
+        if not (parsed_auth_data['flags'] & 0x01):
+            raise ValueError('Passkey user presence check failed')
+
+        credential_id = base64url_encode(parsed_auth_data['credential_id'])
+        if repository.get_passkey_by_credential_id(credential_id):
+            raise ValueError('This passkey is already registered')
+
+        public_key_pem = cose_key_to_pem(parsed_auth_data['credential_public_key'])
+        transports = ','.join(data.get('transports') or [])
+        passkey = repository.create_passkey(
+            label=label,
+            credential_id=credential_id,
+            public_key_pem=public_key_pem,
+            sign_count=parsed_auth_data['sign_count'],
+            transports=transports,
+        )
+        session.pop('passkey_registration', None)
+        return jsonify({
+            'success': True,
+            'message': 'Passkey has been registered',
+            'passkey': {
+                'id': passkey['id'],
+                'label': passkey['label'],
+                'credential_id': passkey['credential_id'],
+                'sign_count': passkey['sign_count'],
+                'created_at': passkey['created_at'],
+            },
+        })
+    except (ValueError, KeyError, json.JSONDecodeError, binascii.Error) as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    except sqlite3.IntegrityError:
+        return jsonify({'success': False, 'error': 'This passkey is already registered'}), 409
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/account/passkeys/<int:passkey_id>', methods=['DELETE'])
+@requires_auth
+def remove_passkey(passkey_id):
+    repository = get_repository()
+    deleted = repository.delete_passkey(passkey_id)
+    if not deleted:
+        return jsonify({'success': False, 'error': 'Passkey was not found'}), 404
+    return jsonify({'success': True, 'message': 'Passkey has been removed'})
 
 
 @app.route('/api/account/2fa/status', methods=['GET'])

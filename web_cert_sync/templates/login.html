@@ -293,6 +293,26 @@
             transform: translateY(-1px);
         }
 
+        .secondary-btn {
+            width: 100%;
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            padding: 14px 18px;
+            margin-top: 12px;
+            background: var(--surface-input);
+            color: var(--heading);
+            font: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+        }
+
+        .secondary-btn:hover {
+            transform: translateY(-1px);
+            border-color: rgba(0, 113, 227, 0.24);
+            background: var(--panel-strong);
+        }
+
         .error-message {
             margin-bottom: 18px;
             padding: 13px 14px;
@@ -316,6 +336,42 @@
             text-align: center;
             font-size: 1.25rem;
             font-variant-numeric: tabular-nums;
+        }
+
+        .divider {
+            height: 1px;
+            margin: 18px 0;
+            background: var(--line);
+        }
+
+        .status-message {
+            display: none;
+            margin-top: 14px;
+            padding: 13px 14px;
+            border-radius: 18px;
+            font-size: 0.92rem;
+            line-height: 1.5;
+        }
+
+        .status-message.visible {
+            display: block;
+        }
+
+        .status-message.info {
+            background: rgba(0, 113, 227, 0.10);
+            color: var(--primary);
+        }
+
+        .status-message.error {
+            background: var(--danger-soft);
+            color: var(--danger);
+        }
+
+        .passkey-copy {
+            color: var(--muted);
+            font-size: 0.88rem;
+            line-height: 1.55;
+            margin: 0;
         }
 
         @media (max-width: 860px) {
@@ -393,6 +449,13 @@
                 <button type="submit" class="submit-btn">登录</button>
             </form>
 
+            {% if not pending_2fa %}
+            <div class="divider"></div>
+            <p class="passkey-copy">如果你已经在“账号安全”里绑定过 Passkey，也可以直接用设备密钥、人脸、指纹或安全密钥登录。</p>
+            <button type="button" id="passkeyLoginBtn" class="secondary-btn">使用 Passkey 登录</button>
+            <div id="passkeyMessage" class="status-message"></div>
+            {% endif %}
+
             <div class="footnote">
                 界面会自动适配浅色、深色和系统主题，无需单独切换。{% if pending_2fa %}如果验证码失效，重新输入一次账号密码即可。{% endif %}
             </div>
@@ -421,6 +484,89 @@
             localStorage.setItem('theme-preference', theme);
             applyTheme(theme);
         });
+
+        function base64UrlToBuffer(value) {
+            const padding = '='.repeat((4 - value.length % 4) % 4);
+            const normalized = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const binary = atob(normalized);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+            return bytes.buffer;
+        }
+
+        function bufferToBase64Url(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (const byte of bytes) binary += String.fromCharCode(byte);
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+        }
+
+        function setPasskeyMessage(text, type = 'info') {
+            const passkeyMessage = document.getElementById('passkeyMessage');
+            if (!passkeyMessage) return;
+            passkeyMessage.textContent = text;
+            passkeyMessage.className = `status-message visible ${type}`;
+        }
+
+        async function loginWithPasskey() {
+            const button = document.getElementById('passkeyLoginBtn');
+            if (!window.PublicKeyCredential) {
+                setPasskeyMessage('当前浏览器不支持 Passkey / WebAuthn。', 'error');
+                return;
+            }
+
+            button.disabled = true;
+            setPasskeyMessage('正在请求 Passkey 验证...', 'info');
+
+            try {
+                const optionResponse = await fetch('/api/passkeys/auth/options', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const optionData = await optionResponse.json();
+                if (!optionData.success) throw new Error(optionData.error || '获取 Passkey 登录信息失败');
+
+                const publicKey = optionData.publicKey;
+                publicKey.challenge = base64UrlToBuffer(publicKey.challenge);
+                publicKey.allowCredentials = (publicKey.allowCredentials || []).map((item) => ({
+                    ...item,
+                    id: base64UrlToBuffer(item.id)
+                }));
+
+                const credential = await navigator.credentials.get({ publicKey });
+                const payload = {
+                    id: credential.id,
+                    type: credential.type,
+                    rawId: bufferToBase64Url(credential.rawId),
+                    response: {
+                        authenticatorData: bufferToBase64Url(credential.response.authenticatorData),
+                        clientDataJSON: bufferToBase64Url(credential.response.clientDataJSON),
+                        signature: bufferToBase64Url(credential.response.signature),
+                        userHandle: credential.response.userHandle ? bufferToBase64Url(credential.response.userHandle) : ''
+                    }
+                };
+
+                const verifyResponse = await fetch('/api/passkeys/auth/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const verifyData = await verifyResponse.json();
+                if (!verifyData.success) throw new Error(verifyData.error || 'Passkey 登录失败');
+
+                window.location.href = verifyData.redirect || '/';
+            } catch (error) {
+                setPasskeyMessage(error.message || 'Passkey 登录失败', 'error');
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        const passkeyLoginBtn = document.getElementById('passkeyLoginBtn');
+        if (passkeyLoginBtn) {
+            passkeyLoginBtn.addEventListener('click', loginWithPasskey);
+        }
     </script>
 </body>
 </html>

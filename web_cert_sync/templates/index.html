@@ -339,6 +339,33 @@
             gap: 10px;
             flex-wrap: wrap;
         }
+        .passkey-list {
+            display: grid;
+            gap: 12px;
+        }
+        .passkey-item {
+            padding: 14px 16px;
+            border-radius: 18px;
+            background: var(--surface-glass);
+            border: 1px solid var(--line);
+        }
+        .passkey-item-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 6px;
+        }
+        .passkey-item strong {
+            color: var(--heading);
+        }
+        .passkey-meta {
+            color: var(--muted);
+            font-size: 0.86rem;
+            line-height: 1.6;
+            word-break: break-word;
+        }
 
         .log-shell {
             margin-top: 14px; border-radius: 24px; overflow: hidden; background: var(--bg-soft);
@@ -691,6 +718,36 @@
                             </form>
                             <div id="twoFactorMessage" class="message"></div>
                         </div>
+
+                        <div class="divider"></div>
+
+                        <div>
+                            <div class="status-row">
+                                <h3 class="card-title" style="font-size:1.05rem;">Passkey 登录</h3>
+                                <div id="passkeyBadge" class="status-badge disabled">未配置</div>
+                            </div>
+                            <p class="card-subtitle" style="margin-bottom:18px;">可以把当前设备、指纹、人脸或安全密钥注册成 Passkey。注册后，登录页可直接走 WebAuthn，不再依赖密码输入。</p>
+
+                            <form id="passkeyRegisterForm">
+                                <div class="field">
+                                    <label for="passkeyLabel">设备名称</label>
+                                    <input id="passkeyLabel" type="text" placeholder="例如 MacBook Pro / YubiKey / Windows Hello">
+                                </div>
+                                <div class="btn-row">
+                                    <button type="submit" class="btn-primary">注册当前设备 Passkey</button>
+                                </div>
+                            </form>
+
+                            <div class="section">
+                                <div class="status-row" style="margin-bottom:10px;">
+                                    <div class="field-hint">已注册的 Passkey 可用于登录页直接认证。</div>
+                                </div>
+                                <div id="passkeyList" class="passkey-list">
+                                    <div class="empty-state">正在加载 Passkey 列表...</div>
+                                </div>
+                            </div>
+                            <div id="passkeyMessage" class="message"></div>
+                        </div>
                     </div>
                 </section>
             </div>
@@ -762,6 +819,11 @@
         const twoFactorDisableForm = document.getElementById('twoFactorDisableForm');
         const twoFactorDisablePassword = document.getElementById('twoFactorDisablePassword');
         const twoFactorDisableCode = document.getElementById('twoFactorDisableCode');
+        const passkeyBadge = document.getElementById('passkeyBadge');
+        const passkeyMessage = document.getElementById('passkeyMessage');
+        const passkeyRegisterForm = document.getElementById('passkeyRegisterForm');
+        const passkeyLabelInput = document.getElementById('passkeyLabel');
+        const passkeyList = document.getElementById('passkeyList');
 
         let currentPageServers = [];
 
@@ -801,6 +863,32 @@
         function clearTwoFactorMessage() {
             twoFactorMessage.textContent = '';
             twoFactorMessage.className = 'message';
+        }
+
+        function setPasskeyMessage(text, type = 'success') {
+            passkeyMessage.textContent = text;
+            passkeyMessage.className = `message visible ${type}`;
+        }
+
+        function clearPasskeyMessage() {
+            passkeyMessage.textContent = '';
+            passkeyMessage.className = 'message';
+        }
+
+        function base64UrlToBuffer(value) {
+            const padding = '='.repeat((4 - value.length % 4) % 4);
+            const normalized = (value + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const binary = atob(normalized);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+            return bytes.buffer;
+        }
+
+        function bufferToBase64Url(buffer) {
+            const bytes = new Uint8Array(buffer);
+            let binary = '';
+            for (const byte of bytes) binary += String.fromCharCode(byte);
+            return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
         }
 
         function applyTheme(theme) {
@@ -1349,6 +1437,113 @@
             }
         }
 
+        function updatePasskeyBadge(count) {
+            passkeyBadge.className = `status-badge ${count > 0 ? 'enabled' : 'disabled'}`;
+            passkeyBadge.textContent = count > 0 ? `已配置 ${count} 个` : '未配置';
+        }
+
+        function renderPasskeys(items) {
+            if (!items.length) {
+                passkeyList.innerHTML = '<div class="empty-state">还没有注册 Passkey。</div>';
+                updatePasskeyBadge(0);
+                return;
+            }
+
+            passkeyList.innerHTML = items.map((item) => `
+                <div class="passkey-item">
+                    <div class="passkey-item-head">
+                        <strong>${escapeHtml(item.label || '未命名 Passkey')}</strong>
+                        <button type="button" class="btn-danger" data-passkey-id="${item.id}">删除</button>
+                    </div>
+                    <div class="passkey-meta">凭据 ID：${escapeHtml(item.credential_id)}</div>
+                    <div class="passkey-meta">创建时间：${escapeHtml(item.created_at || '-')}</div>
+                    <div class="passkey-meta">最近使用：${escapeHtml(item.last_used_at || '尚未使用')}</div>
+                </div>
+            `).join('');
+            updatePasskeyBadge(items.length);
+        }
+
+        async function loadPasskeys() {
+            try {
+                const response = await fetch('/api/account/passkeys');
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || '加载 Passkey 列表失败');
+                renderPasskeys(data.items || []);
+            } catch (error) {
+                passkeyList.innerHTML = `<div class="empty-state">${escapeHtml(error.message)}</div>`;
+                updatePasskeyBadge(0);
+            }
+        }
+
+        async function registerPasskey(event) {
+            event.preventDefault();
+            clearPasskeyMessage();
+
+            if (!window.PublicKeyCredential) {
+                setPasskeyMessage('当前浏览器不支持 Passkey / WebAuthn。', 'error');
+                return;
+            }
+
+            try {
+                const optionResponse = await fetch('/api/account/passkeys/register/options', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                const optionData = await optionResponse.json();
+                if (!optionData.success) throw new Error(optionData.error || '获取 Passkey 注册信息失败');
+
+                const publicKey = optionData.publicKey;
+                publicKey.challenge = base64UrlToBuffer(publicKey.challenge);
+                publicKey.user.id = base64UrlToBuffer(publicKey.user.id);
+                publicKey.excludeCredentials = (publicKey.excludeCredentials || []).map((item) => ({
+                    ...item,
+                    id: base64UrlToBuffer(item.id)
+                }));
+
+                const credential = await navigator.credentials.create({ publicKey });
+                const payload = {
+                    id: credential.id,
+                    type: credential.type,
+                    rawId: bufferToBase64Url(credential.rawId),
+                    label: passkeyLabelInput.value.trim(),
+                    response: {
+                        clientDataJSON: bufferToBase64Url(credential.response.clientDataJSON),
+                        attestationObject: bufferToBase64Url(credential.response.attestationObject)
+                    },
+                    transports: credential.response.getTransports ? credential.response.getTransports() : []
+                };
+
+                const verifyResponse = await fetch('/api/account/passkeys/register/verify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const verifyData = await verifyResponse.json();
+                if (!verifyData.success) throw new Error(verifyData.error || 'Passkey 注册失败');
+
+                passkeyLabelInput.value = '';
+                setPasskeyMessage('Passkey 已注册，可以在登录页直接使用。');
+                await loadPasskeys();
+            } catch (error) {
+                setPasskeyMessage(error.message, 'error');
+            }
+        }
+
+        async function deletePasskey(passkeyId) {
+            clearPasskeyMessage();
+
+            try {
+                const response = await fetch(`/api/account/passkeys/${passkeyId}`, { method: 'DELETE' });
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || '删除 Passkey 失败');
+                setPasskeyMessage('Passkey 已删除。');
+                await loadPasskeys();
+            } catch (error) {
+                setPasskeyMessage(error.message, 'error');
+            }
+        }
+
         function updateTargetMode(mode) {
             state.currentMode = mode;
             specificTargets.classList.toggle('hidden', mode !== 'specific');
@@ -1456,9 +1651,15 @@
         twoFactorSetupForm.addEventListener('submit', startTwoFactorSetup);
         twoFactorEnableForm.addEventListener('submit', enableTwoFactor);
         twoFactorDisableForm.addEventListener('submit', disableTwoFactor);
+        passkeyRegisterForm.addEventListener('submit', registerPasskey);
         resetServerBtn.addEventListener('click', () => {
             resetServerForm();
             clearMessage();
+        });
+        passkeyList.addEventListener('click', (event) => {
+            const button = event.target.closest('[data-passkey-id]');
+            if (!button) return;
+            deletePasskey(button.dataset.passkeyId);
         });
         syncForm.addEventListener('submit', submitSync);
 
@@ -1468,6 +1669,7 @@
         loadDomains();
         loadServers();
         loadTwoFactorStatus();
+        loadPasskeys();
     </script>
 </body>
 </html>
