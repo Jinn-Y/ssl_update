@@ -644,7 +644,8 @@ def is_valid_ip_or_domain(target):
 @app.route('/')
 @requires_auth
 def index():
-    return render_template('index.html')
+    import time
+    return render_template('index.html', cache_bust=int(time.time()))
 
 
 @app.route('/favicon.png')
@@ -666,22 +667,20 @@ def get_domains():
     
     try:
         if os.path.exists(acme_root):
-            # List all directories in ACME root
             for item in os.listdir(acme_root):
                 item_path = os.path.join(acme_root, item)
-                # Check if it's a directory and ends with _ecc
                 if os.path.isdir(item_path) and item.endswith('_ecc'):
-                    # Extract domain name (remove _ecc suffix)
-                    domain = item[:-4]  # Remove last 4 characters (_ecc)
-                    
-                    # Verify that certificate files exist
+                    domain = item[:-4]
                     cert_file = os.path.join(item_path, 'fullchain.cer')
                     key_file = os.path.join(item_path, f'{domain}.key')
-                    
                     if os.path.exists(cert_file) and os.path.exists(key_file):
                         domains.append(domain)
         
-        domains.sort()  # Sort alphabetically
+        # 本地开发模式：如果没有找到真实域名，注入演示数据
+        if not domains and os.environ.get('DEMO_MODE', '').lower() in ('1', 'true', 'yes'):
+            domains = ['example.com', 'api.example.com', 'cdn.example.com']
+        
+        domains.sort()
         return jsonify({'success': True, 'domains': domains})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -694,6 +693,12 @@ def get_cert_info(domain):
     cert_path = os.path.join(config.ACME_CERT_ROOT, f"{domain}{config.CERT_DIR_SUFFIX}", "fullchain.cer")
     
     if not os.path.exists(cert_path):
+        # 本地开发模式：返回演示证书数据
+        if os.environ.get('DEMO_MODE', '').lower() in ('1', 'true', 'yes'):
+            import random
+            demo_days = {'example.com': 58, 'api.example.com': 12, 'cdn.example.com': 3}
+            days = demo_days.get(domain, random.randint(5, 90))
+            return jsonify({'success': True, 'domain': domain, 'expiry_date': 'Jun 25 12:00:00 2026 GMT', 'days_left': days})
         return jsonify({'success': False, 'error': 'Certificate not found'}), 404
         
     try:
