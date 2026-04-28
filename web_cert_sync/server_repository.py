@@ -83,7 +83,7 @@ class ServerRepository:
                 return
 
         txt_path = self.config.SERVER_LIST_PATH
-        if not txt_path or not os.path.exists(txt_path):
+        if not txt_path or not os.path.isfile(txt_path):
             return
 
         servers_to_import = []
