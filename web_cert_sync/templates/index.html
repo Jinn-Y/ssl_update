@@ -89,6 +89,16 @@
                     <div id="serverMessage" class="message"></div>
                 </div>
             </div>
+            <!-- 域名选择（同步/探测用） -->
+            <div class="card" style="margin-bottom:20px">
+                <div class="card-head"><h2 class="card-title">同步域名</h2><p class="card-subtitle">选择证书域名后，可对下方服务器执行单机同步或远端证书探测。</p></div>
+                <div class="card-body">
+                    <div class="btn-row" style="align-items:end">
+                        <div class="field" style="flex:1;margin-bottom:0"><label for="serverDomain">证书域名</label><select id="serverDomain"><option value="">加载中...</option></select></div>
+                        <button type="button" id="refreshServerDomains" class="btn-secondary btn-sm" style="margin-bottom:1px">刷新</button>
+                    </div>
+                </div>
+            </div>
             <!-- 服务器表格 -->
             <div class="card">
                 <div class="card-head"><h2 class="card-title">全局服务器库</h2></div>

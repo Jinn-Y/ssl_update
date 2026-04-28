@@ -8,6 +8,7 @@ function $(id){return document.getElementById(id)}
 function b64UrlToBuf(v){const p='='.repeat((4-v.length%4)%4);const n=(v+p).replace(/-/g,'+').replace(/_/g,'/');const b=atob(n);const u=new Uint8Array(b.length);for(let i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u.buffer}
 function bufToB64Url(buf){const u=new Uint8Array(buf);let b='';for(const x of u)b+=String.fromCharCode(x);return btoa(b).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/g,'')}
 function fmtDays(d){return d<0?`已过期 ${Math.abs(d)} 天`:d===0?'今天到期':`剩余 ${d} 天`}
+function getSelectedDomain(){return ($('serverDomain')?.value)||($('domain')?.value)||''}
 
 /* 视图切换 */
 function switchView(name){
@@ -16,7 +17,7 @@ function switchView(name){
     const view=$('view-'+name);if(view)view.classList.add('active');
     document.querySelectorAll(`[data-view="${name}"]`).forEach(n=>n.classList.add('active'));
     if(name==='dashboard')loadDashboard();
-    if(name==='servers'){loadServers()}
+    if(name==='servers'){loadServerDomains();loadServers()}
     if(name==='sync')loadDomains();
     if(name==='account'){loadTwoFactorStatus();loadPasskeys()}
 }
@@ -116,9 +117,9 @@ async function loadDashboard(){
     }catch(e){console.error('Dashboard load error',e)}
 }
 
-/* ===== 域名加载 ===== */
-async function loadDomains(){
-    const sel=$('domain');sel.innerHTML='<option value="">加载中...</option>';
+/* ===== 域名加载（通用） ===== */
+async function fillDomainSelect(sel){
+    sel.innerHTML='<option value="">加载中...</option>';
     try{
         const r=await fetch('/api/domains');const d=await r.json();
         if(!d.success)throw new Error(d.error);
@@ -135,6 +136,8 @@ async function loadDomains(){
         });
     }catch(e){sel.innerHTML='<option value="">加载失败</option>'}
 }
+async function loadDomains(){await fillDomainSelect($('domain'))}
+async function loadServerDomains(){await fillDomainSelect($('serverDomain'))}
 
 /* ===== 服务器管理 ===== */
 async function loadServers(){
@@ -198,8 +201,8 @@ window.removeServer=async function(id){
     }catch(e){showMsg($('serverMessage'),e.message,'error')}
 }
 window.syncSingle=async function(id){
-    const domain=$('domain')?.value;
-    if(!domain){logStart('单机同步','');logAdd('请先选择证书域名','error');logFinish('error','缺少域名');return}
+    const domain=getSelectedDomain();
+    if(!domain){logStart('单机同步','');logAdd('请先在上方选择证书域名','error');logFinish('error','缺少域名');return}
     const s=S.currentServers.find(x=>x.id===id);if(!s)return;
     setSyncState(id,'running');logStart('单机同步',`${s.host}:${s.port}`);
     logAdd(`同步 ${domain} → ${s.host}:${s.port}`,'info','TASK');
@@ -209,7 +212,7 @@ window.syncSingle=async function(id){
     }catch(e){setSyncState(id,'error');logAdd(`错误：${e.message}`,'error');logFinish('error','网络异常')}
 }
 window.probeRemote=async function(id){
-    const domain=$('domain')?.value;if(!domain){logStart('证书探测','');logAdd('请先选择域名','error');logFinish('error','');return}
+    const domain=getSelectedDomain();if(!domain){logStart('证书探测','');logAdd('请先在上方选择证书域名','error');logFinish('error','');return}
     const s=S.currentServers.find(x=>x.id===id);if(!s)return;
     logStart('证书探测',`${s.host}:${s.port}`);logAdd(`探测 ${s.host}:${s.port} 上的 ${domain}`,'info','TASK');
     try{const r=await fetch(`/api/servers/${id}/remote-cert-info?domain=${encodeURIComponent(domain)}`);const d=await r.json();
@@ -358,6 +361,7 @@ document.addEventListener('DOMContentLoaded',function(){
     // 同步
     $('syncForm').addEventListener('submit',submitSync);
     $('refreshDomains').addEventListener('click',loadDomains);
+    $('refreshServerDomains')?.addEventListener('click',loadServerDomains);
     document.querySelectorAll('input[name="target_mode"]').forEach(r=>r.addEventListener('change',e=>updateMode(e.target.value)));
     // 账号
     $('passwordForm').addEventListener('submit',updatePassword);
