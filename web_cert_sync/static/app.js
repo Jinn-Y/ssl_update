@@ -228,6 +228,38 @@ window.probeRemote=async function(id){
     logAdd(fmtDays(d.days_left),d.days_left<7?'warn':'ok','TIME');logFinish('success',`${s.host} ${fmtDays(d.days_left)}`);
     }catch(e){logAdd(`错误：${e.message}`,'error');logFinish('error','网络异常')}
 }
+/* 全部探测：遍历所有已启用服务器探测远端证书 */
+async function probeAll(){
+    const domain=getSelectedDomain();
+    if(!domain){logStart('全部探测','');logAdd('请先在上方选择证书域名','error');logFinish('error','缺少域名');return}
+    const btn=$('probeAllBtn');btn.disabled=true;btn.textContent='探测中...';
+    logStart('全部探测',`域名：${domain}`);
+    logAdd(`开始探测所有已启用服务器上的 ${domain} 证书`,'info','TASK');
+    /* 获取全量已启用服务器 */
+    let allServers=[];
+    try{
+        const r=await fetch('/api/servers?page=1&page_size=9999&search=');const d=await r.json();
+        if(!d.success)throw new Error(d.error);
+        allServers=d.items.filter(s=>s.enabled);
+    }catch(e){logAdd(`加载服务器列表失败：${e.message}`,'error');logFinish('error','加载失败');btn.disabled=false;btn.textContent='全部探测';return}
+    if(!allServers.length){logAdd('没有已启用的服务器','warn');logFinish('error','无可探测节点');btn.disabled=false;btn.textContent='全部探测';return}
+    logAdd(`共 ${allServers.length} 台已启用服务器`,'info');
+    let ok=0,fail=0;
+    for(const s of allServers){
+        logAdd(`探测 ${s.host}:${s.port} (${s.remark||s.group_name})`,'info','PING');
+        try{
+            const r=await fetch(`/api/servers/${s.id}/remote-cert-info?domain=${encodeURIComponent(domain)}`);
+            const d=await r.json();
+            if(!r.ok||!d.success){logAdd(`  ✗ ${s.host}:${s.port} — ${d.error||'探测失败'}`,'error','FAIL');fail++;continue}
+            const cls=d.days_left<7?'warn':d.days_left<30?'warn':'ok';
+            logAdd(`  ✓ ${s.host}:${s.port} — ${fmtDays(d.days_left)} (${d.expiry_date})`,cls,'CERT');
+            ok++;
+        }catch(e){logAdd(`  ✗ ${s.host}:${s.port} — 网络错误：${e.message}`,'error','FAIL');fail++}
+    }
+    logAdd(`探测完成：成功 ${ok} / 失败 ${fail} / 共 ${allServers.length}`,'info','DONE');
+    logFinish(fail?'error':'success',`成功 ${ok} 台，失败 ${fail} 台`);
+    btn.disabled=false;btn.textContent='全部探测';
+}
 async function saveServer(e){
     e.preventDefault();clearMsg($('serverMessage'));
     const payload={host:$('serverHost').value.trim(),port:Number($('serverPort').value),
@@ -368,6 +400,7 @@ document.addEventListener('DOMContentLoaded',function(){
     // 同步
     $('syncForm').addEventListener('submit',submitSync);
     $('refreshDomains').addEventListener('click',loadDomains);
+    $('probeAllBtn')?.addEventListener('click',probeAll);
     $('refreshServerDomains')?.addEventListener('click',loadServerDomains);
     document.querySelectorAll('input[name="target_mode"]').forEach(r=>r.addEventListener('change',e=>updateMode(e.target.value)));
     // 账号
