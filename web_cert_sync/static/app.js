@@ -117,22 +117,29 @@ async function loadDashboard(){
     }catch(e){console.error('Dashboard load error',e)}
 }
 
-/* ===== 域名加载（通用） ===== */
+/* ===== 域名加载（通用，两阶段） ===== */
 async function fillDomainSelect(sel){
     sel.innerHTML='<option value="">加载中...</option>';
     try{
         const r=await fetch('/api/domains');const d=await r.json();
         if(!d.success)throw new Error(d.error);
         if(!d.domains.length){sel.innerHTML='<option value="">未找到可用证书</option>';return}
-        const infos=await Promise.all(d.domains.map(async dm=>{
-            try{const cr=await fetch(`/api/cert_info/${encodeURIComponent(dm)}`);return{domain:dm,cert:await cr.json()}}
-            catch(e){return{domain:dm,cert:null}}
-        }));
+        /* 第一阶段：立即填充域名列表，让用户可以选择 */
         sel.innerHTML='<option value="">请选择证书域名</option>';
-        infos.forEach(({domain,cert})=>{
-            const o=document.createElement('option');o.value=domain;
-            o.textContent=cert&&cert.success?`${domain} (剩余 ${cert.days_left} 天)`:domain;
+        d.domains.forEach(dm=>{
+            const o=document.createElement('option');o.value=dm;o.textContent=dm;
             sel.appendChild(o);
+        });
+        /* 第二阶段：后台异步获取证书到期信息，更新 option 文本 */
+        d.domains.forEach(async(dm)=>{
+            try{
+                const cr=await fetch(`/api/cert_info/${encodeURIComponent(dm)}`);
+                const info=await cr.json();
+                if(info&&info.success){
+                    const opt=sel.querySelector(`option[value="${CSS.escape(dm)}"]`);
+                    if(opt)opt.textContent=`${dm} (剩余 ${info.days_left} 天)`;
+                }
+            }catch(e){/* 证书信息加载失败不影响选择 */}
         });
     }catch(e){sel.innerHTML='<option value="">加载失败</option>'}
 }
