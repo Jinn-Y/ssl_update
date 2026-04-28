@@ -45,6 +45,8 @@ function logStart(title,meta){
     $('logBody').innerHTML='';
     logSetStatus('running','运行中');
     logSetSummary('');
+    /* 自动滚动到日志面板 */
+    setTimeout(()=>p.scrollIntoView({behavior:'smooth',block:'start'}),100);
 }
 function logSetStatus(cls,text){
     const b=$('logStatusBadge');b.className='log-status-badge';
@@ -199,7 +201,14 @@ function fillForm(s){
     $('serverRemark').value=s.remark||'';$('serverEnabled').value=String(s.enabled);
     $('editorTitle').textContent=`编辑服务器 #${s.id}`;
 }
-window.editServer=function(id){const s=S.currentServers.find(x=>x.id===id);if(s)fillForm(s)}
+window.editServer=function(id){
+    const s=S.currentServers.find(x=>x.id===id);
+    if(s){
+        fillForm(s);
+        /* 自动滚动到编辑表单 */
+        $('editorTitle').scrollIntoView({behavior:'smooth',block:'start'});
+    }
+}
 window.removeServer=async function(id){
     if(!confirm('确认删除？'))return;
     try{const r=await fetch(`/api/servers/${id}`,{method:'DELETE'});const d=await r.json();
