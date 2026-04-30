@@ -270,34 +270,38 @@ window.probeRemote=async function(id){
 }
 /* 全部探测：遍历所有已启用服务器探测远端证书 */
 async function probeAll(){
+    const logPanelEl = $('probeAllLogPanel');
+    logPanelEl.style.display = 'block';
+    const logger = new LogConsole(logPanelEl);
+    
     const domain=getSelectedDomain();
-    if(!domain){logStart('全部探测','');logAdd('请先在上方选择证书域名','error');logFinish('error','缺少域名');return}
+    if(!domain){logger.start('全部探测','');logger.add('请先在上方选择证书域名','error');logger.finish('error','缺少域名');return}
     const btn=$('probeAllBtn');btn.disabled=true;btn.textContent='探测中...';
-    logStart('全部探测',`域名：${domain}`);
-    logAdd(`开始探测所有已启用服务器上的 ${domain} 证书`,'info','TASK');
+    logger.start('全部探测',`域名：${domain}`);
+    logger.add(`开始探测所有已启用服务器上的 ${domain} 证书`,'info','TASK');
     /* 获取全量已启用服务器 */
     let allServers=[];
     try{
         const r=await fetch('/api/servers?page=1&page_size=9999&search=');const d=await r.json();
         if(!d.success)throw new Error(d.error);
         allServers=d.items.filter(s=>s.enabled);
-    }catch(e){logAdd(`加载服务器列表失败：${e.message}`,'error');logFinish('error','加载失败');btn.disabled=false;btn.textContent='全部探测';return}
-    if(!allServers.length){logAdd('没有已启用的服务器','warn');logFinish('error','无可探测节点');btn.disabled=false;btn.textContent='全部探测';return}
-    logAdd(`共 ${allServers.length} 台已启用服务器`,'info');
+    }catch(e){logger.add(`加载服务器列表失败：${e.message}`,'error');logger.finish('error','加载失败');btn.disabled=false;btn.textContent='全部探测';return}
+    if(!allServers.length){logger.add('没有已启用的服务器','warn');logger.finish('error','无可探测节点');btn.disabled=false;btn.textContent='全部探测';return}
+    logger.add(`共 ${allServers.length} 台已启用服务器`,'info');
     let ok=0,fail=0;
     for(const s of allServers){
-        logAdd(`探测 ${s.host}:${s.port} (${s.remark||s.group_name})`,'info','PING');
+        logger.add(`探测 ${s.host}:${s.port} (${s.remark||s.group_name})`,'info','PING');
         try{
             const r=await fetch(`/api/servers/${s.id}/remote-cert-info?domain=${encodeURIComponent(domain)}`);
             const d=await r.json();
-            if(!r.ok||!d.success){logAdd(`  ✗ ${s.host}:${s.port} — ${d.error||'探测失败'}`,'error','FAIL');fail++;continue}
+            if(!r.ok||!d.success){logger.add(`  ✗ ${s.host}:${s.port} — ${d.error||'探测失败'}`,'error','FAIL');fail++;continue}
             const cls=d.days_left<7?'warn':d.days_left<30?'warn':'ok';
-            logAdd(`  ✓ ${s.host}:${s.port} — ${fmtDays(d.days_left)} (${d.expiry_date})`,cls,'CERT');
+            logger.add(`  ✓ ${s.host}:${s.port} — ${fmtDays(d.days_left)} (${d.expiry_date})`,cls,'CERT');
             ok++;
-        }catch(e){logAdd(`  ✗ ${s.host}:${s.port} — 网络错误：${e.message}`,'error','FAIL');fail++}
+        }catch(e){logger.add(`  ✗ ${s.host}:${s.port} — 网络错误：${e.message}`,'error','FAIL');fail++}
     }
-    logAdd(`探测完成：成功 ${ok} / 失败 ${fail} / 共 ${allServers.length}`,'info','DONE');
-    logFinish(fail?'error':'success',`成功 ${ok} 台，失败 ${fail} 台`);
+    logger.add(`探测完成：成功 ${ok} / 失败 ${fail} / 共 ${allServers.length}`,'info','DONE');
+    logger.finish(fail?'error':'success',`成功 ${ok} 台，失败 ${fail} 台`);
     btn.disabled=false;btn.textContent='全部探测';
 }
 async function saveServer(e){

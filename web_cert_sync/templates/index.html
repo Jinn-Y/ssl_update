@@ -98,6 +98,11 @@
                         <button type="button" id="refreshServerDomains" class="btn-secondary btn-sm" style="margin-bottom:1px">刷新</button>
                         <button type="button" id="probeAllBtn" class="btn-primary btn-sm btn-icon" style="margin-bottom:1px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg> 全部探测</button>
                     </div>
+                    <div id="probeAllLogPanel" class="log-panel" style="display:none; margin-top:16px; border:1px solid var(--border-color); box-shadow:none;">
+                        <div class="log-header" style="background:var(--bg-card);"><div class="log-header-left"><span class="log-title-bar">全部探测日志</span></div><div class="log-status-badge">待命</div></div>
+                        <div class="log-body" style="max-height:260px;"></div>
+                        <div class="log-summary"></div>
+                    </div>
                 </div>
             </div>
             <!-- 服务器表格 -->
