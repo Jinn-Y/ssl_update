@@ -322,15 +322,20 @@ function updateMode(mode){
     document.querySelectorAll('.radio-option').forEach(o=>{const r=o.querySelector('input');o.classList.toggle('active',r.value===mode)});
 }
 async function submitSync(e){
-    e.preventDefault();const domain=$('domain').value;
-    if(!domain){logStart('同步','');logAdd('请选择域名','error');logFinish('error','');return}
+    e.preventDefault();
+    const logPanelEl = $('syncLogPanel');
+    logPanelEl.style.display = 'block';
+    const logger = new LogConsole(logPanelEl);
+    
+    const domain=$('domain').value;
+    if(!domain){logger.start('同步','');logger.add('请选择域名','error');logger.finish('error','');return}
     const fd=new FormData();fd.append('domain',domain);fd.append('target_mode',S.mode);
-    if(S.mode==='specific'){const v=$('specific_ips').value.trim();if(!v){logStart('同步','');logAdd('请填写目标','error');logFinish('error','');return}fd.append('specific_ips',v)}
+    if(S.mode==='specific'){const v=$('specific_ips').value.trim();if(!v){logger.start('同步','');logger.add('请填写目标','error');logger.finish('error','');return}fd.append('specific_ips',v)}
     const btn=$('submitBtn');btn.disabled=true;btn.textContent='同步中...';
-    logStart(S.mode==='all'?'全量同步':'临时目标同步','');logAdd(`同步 ${domain}`,'info','TASK');
+    logger.start(S.mode==='all'?'全量同步':'临时目标同步','');logger.add(`同步 ${domain}`,'info','TASK');
     try{const r=await fetch('/sync',{method:'POST',body:fd});
-    await consumeStream(r,{onOk:null,onFail:null,okText:'同步完成',failPre:'失败：'});
-    }catch(e){logAdd(`错误：${e.message}`,'error');logFinish('error','网络异常')}
+    await consumeStream(r,{logger,onOk:null,onFail:null,okText:'同步完成',failPre:'失败：'});
+    }catch(e){logger.add(`错误：${e.message}`,'error');logger.finish('error','网络异常')}
     finally{btn.disabled=false;btn.textContent='开始同步'}
 }
 
