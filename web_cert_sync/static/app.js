@@ -39,41 +39,56 @@ function showMsg(el,text,type='success'){el.textContent=text;el.className=`messa
 function clearMsg(el){el.textContent='';el.className='message'}
 
 /* ===== 日志面板 ===== */
-function logStart(title,meta){
-    const p=$('logPanel');p.classList.add('active');
-    $('logTitleBar').textContent=title;
-    $('logBody').innerHTML='';
-    logSetStatus('running','运行中');
-    logSetSummary('');
-    /* 自动滚动到日志面板 */
-    setTimeout(()=>p.scrollIntoView({behavior:'smooth',block:'start'}),100);
+class LogConsole {
+    constructor(panelEl) {
+        this.panel = panelEl;
+        this.titleBar = panelEl.querySelector('.log-title-bar');
+        this.statusBadge = panelEl.querySelector('.log-status-badge');
+        this.body = panelEl.querySelector('.log-body');
+        this.summary = panelEl.querySelector('.log-summary');
+    }
+    start(title, meta) {
+        this.panel.classList.add('active');
+        this.titleBar.textContent = title;
+        this.body.innerHTML = '';
+        this.setStatus('running', '运行中');
+        this.setSummary('');
+        setTimeout(() => this.panel.scrollIntoView({behavior:'smooth',block:'center'}), 100);
+    }
+    setStatus(cls, text) {
+        this.statusBadge.className = 'log-status-badge';
+        if(cls) this.statusBadge.classList.add(cls);
+        this.statusBadge.textContent = text;
+    }
+    setSummary(t) {
+        if(!t) { this.summary.textContent = ''; this.summary.className = 'log-summary'; return; }
+        this.summary.textContent = t; this.summary.className = 'log-summary visible';
+    }
+    add(msg, type='info', label='') {
+        const tags={info:'INFO',warn:'WARN',error:'ERROR',ok:'OK',task:'TASK',ping:'PING',done:'DONE',path:'PATH',cert:'CERT',time:'TIME'};
+        const e=document.createElement('div'); e.className='log-entry';
+        e.innerHTML=`<span class="log-ts">${now()}</span><span class="log-tag ${type}">${label||tags[type]||'INFO'}</span><span class="log-msg">${esc(msg)}</span>`;
+        this.body.appendChild(e); this.body.scrollTop=this.body.scrollHeight;
+    }
+    finish(status, summary) {
+        this.setStatus(status, status==='success'?'完成':'失败');
+        this.setSummary(summary);
+    }
 }
-function logSetStatus(cls,text){
-    const b=$('logStatusBadge');b.className='log-status-badge';
-    if(cls)b.classList.add(cls);b.textContent=text;
-}
-function logSetSummary(t){
-    const s=$('logSummary');
-    if(!t){s.textContent='';s.className='log-summary';return}
-    s.textContent=t;s.className='log-summary visible';
-}
-function logAdd(msg,type='info',label=''){
-    const body=$('logBody');
-    const tags={info:'INFO',warn:'WARN',error:'ERROR',ok:'OK',task:'TASK'};
-    const e=document.createElement('div');e.className='log-entry';
-    e.innerHTML=`<span class="log-ts">${now()}</span><span class="log-tag ${type}">${label||tags[type]||'INFO'}</span><span class="log-msg">${esc(msg)}</span>`;
-    body.appendChild(e);body.scrollTop=body.scrollHeight;
-}
-function logFinish(status,summary){
-    logSetStatus(status,status==='success'?'完成':'失败');
-    logSetSummary(summary);
-}
+let _defLog = null;
+function defLog() { if(!_defLog) _defLog=new LogConsole($('logPanel')); return _defLog; }
+function logStart(title, meta){ defLog().start(title, meta); }
+function logSetStatus(cls, text){ defLog().setStatus(cls, text); }
+function logSetSummary(t){ defLog().setSummary(t); }
+function logAdd(msg, type='info', label=''){ defLog().add(msg, type, label); }
+function logFinish(status, summary){ defLog().finish(status, summary); }
 function inferType(m){return m.includes('[ERROR]')?'error':m.includes('[WARN]')?'warn':'info'}
 
 /* SSE 流消费 */
 async function consumeStream(resp,opts){
     const{onOk,onFail,metaFn,okText,failPre}=opts;
-    if(!resp.ok){const t=await resp.text();logAdd(t,'error');logFinish('error',t);if(onFail)onFail(t);return}
+    const logger = opts.logger || defLog();
+    if(!resp.ok){const t=await resp.text();logger.add(t,'error');logger.finish('error',t);if(onFail)onFail(t);return}
     const reader=resp.body.getReader();const dec=new TextDecoder();
     while(true){
         const{done,value}=await reader.read();if(done)break;
@@ -82,9 +97,9 @@ async function consumeStream(resp,opts){
             if(!line.startsWith('data: '))return;
             const msg=line.slice(6);
             if(msg==='[KEEPALIVE]'||msg==='[DONE]')return;
-            if(msg.startsWith('[SUCCESS]')){logAdd(okText,'ok','OK');logFinish('success',okText);if(onOk)onOk();return}
-            if(msg.startsWith('[FAILED]')){const f=msg.replace('[FAILED]','').trim()||'存在失败节点';const t=failPre+f;logAdd(t,'error','FAIL');logFinish('error',t);if(onFail)onFail(f);return}
-            logAdd(msg,inferType(msg));
+            if(msg.startsWith('[SUCCESS]')){logger.add(okText,'ok','OK');logger.finish('success',okText);if(onOk)onOk();return}
+            if(msg.startsWith('[FAILED]')){const f=msg.replace('[FAILED]','').trim()||'存在失败节点';const t=failPre+f;logger.add(t,'error','FAIL');logger.finish('error',t);if(onFail)onFail(f);return}
+            logger.add(msg,inferType(msg));
         });
     }
 }
@@ -180,7 +195,14 @@ function renderServers(servers){
                 <button class="btn-secondary btn-sm" onclick="probeRemote(${s.id})" ${s.enabled?'':'disabled'}>探测到期</button>
                 <button class="btn-secondary btn-sm" onclick="editServer(${s.id})">编辑</button>
                 <button class="btn-danger btn-sm" onclick="removeServer(${s.id})">删除</button>
-            </div></td></tr>`}).join('');
+            </div></td></tr>
+            <tr id="server-log-row-${s.id}" style="display:none;"><td colspan="7" style="padding:0;border:none;">
+                <div id="logPanel-${s.id}" class="log-panel" style="margin:10px; border:1px solid var(--border-color); box-shadow:none;">
+                    <div class="log-header" style="background:var(--bg-card);"><div class="log-header-left"><span class="log-title-bar">日志</span></div><div class="log-status-badge">待命</div></div>
+                    <div class="log-body" style="max-height:200px;"></div>
+                    <div class="log-summary"></div>
+                </div>
+            </td></tr>`}).join('');
 }
 function setSyncState(id,status){
     S.syncStates[id]=status;
@@ -220,22 +242,30 @@ window.syncSingle=async function(id){
     const domain=getSelectedDomain();
     if(!domain){logStart('单机同步','');logAdd('请先在上方选择证书域名','error');logFinish('error','缺少域名');return}
     const s=S.currentServers.find(x=>x.id===id);if(!s)return;
-    setSyncState(id,'running');logStart('单机同步',`${s.host}:${s.port}`);
-    logAdd(`同步 ${domain} → ${s.host}:${s.port}`,'info','TASK');
+    
+    const logRow=$(`server-log-row-${id}`); logRow.style.display='table-row';
+    const logger=new LogConsole($(`logPanel-${id}`));
+    
+    setSyncState(id,'running');logger.start('单机同步',`${s.host}:${s.port}`);
+    logger.add(`同步 ${domain} → ${s.host}:${s.port}`,'info','TASK');
     const fd=new FormData();fd.append('domain',domain);
     try{const r=await fetch(`/api/servers/${id}/sync`,{method:'POST',body:fd});
-    await consumeStream(r,{onOk:()=>setSyncState(id,'success'),onFail:()=>setSyncState(id,'error'),okText:`${s.host}:${s.port} 同步完成`,failPre:'同步失败：'});
-    }catch(e){setSyncState(id,'error');logAdd(`错误：${e.message}`,'error');logFinish('error','网络异常')}
+    await consumeStream(r,{logger,onOk:()=>setSyncState(id,'success'),onFail:()=>setSyncState(id,'error'),okText:`${s.host}:${s.port} 同步完成`,failPre:'同步失败：'});
+    }catch(e){setSyncState(id,'error');logger.add(`错误：${e.message}`,'error');logger.finish('error','网络异常')}
 }
 window.probeRemote=async function(id){
     const domain=getSelectedDomain();if(!domain){logStart('证书探测','');logAdd('请先在上方选择证书域名','error');logFinish('error','');return}
     const s=S.currentServers.find(x=>x.id===id);if(!s)return;
-    logStart('证书探测',`${s.host}:${s.port}`);logAdd(`探测 ${s.host}:${s.port} 上的 ${domain}`,'info','TASK');
+    
+    const logRow=$(`server-log-row-${id}`); logRow.style.display='table-row';
+    const logger=new LogConsole($(`logPanel-${id}`));
+    
+    logger.start('证书探测',`${s.host}:${s.port}`);logger.add(`探测 ${s.host}:${s.port} 上的 ${domain}`,'info','TASK');
     try{const r=await fetch(`/api/servers/${id}/remote-cert-info?domain=${encodeURIComponent(domain)}`);const d=await r.json();
-    if(!r.ok||!d.success){logAdd(d.error||'探测失败','error','FAIL');logFinish('error',d.error||'');return}
-    logAdd(`路径：${d.remote_cert}`,'info','PATH');logAdd(`到期：${d.expiry_date}`,'ok','CERT');
-    logAdd(fmtDays(d.days_left),d.days_left<7?'warn':'ok','TIME');logFinish('success',`${s.host} ${fmtDays(d.days_left)}`);
-    }catch(e){logAdd(`错误：${e.message}`,'error');logFinish('error','网络异常')}
+    if(!r.ok||!d.success){logger.add(d.error||'探测失败','error','FAIL');logger.finish('error',d.error||'');return}
+    logger.add(`路径：${d.remote_cert}`,'info','PATH');logger.add(`到期：${d.expiry_date}`,'ok','CERT');
+    logger.add(fmtDays(d.days_left),d.days_left<7?'warn':'ok','TIME');logger.finish('success',`${s.host} ${fmtDays(d.days_left)}`);
+    }catch(e){logger.add(`错误：${e.message}`,'error');logger.finish('error','网络异常')}
 }
 /* 全部探测：遍历所有已启用服务器探测远端证书 */
 async function probeAll(){
