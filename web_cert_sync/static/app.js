@@ -239,12 +239,12 @@ window.removeServer=async function(id){
     }catch(e){showMsg($('serverMessage'),e.message,'error')}
 }
 window.syncSingle=async function(id){
-    const domain=getSelectedDomain();
-    if(!domain){logStart('单机同步','');logAdd('请先在上方选择证书域名','error');logFinish('error','缺少域名');return}
     const s=S.currentServers.find(x=>x.id===id);if(!s)return;
-    
     const logRow=$(`server-log-row-${id}`); logRow.style.display='table-row';
     const logger=new LogConsole($(`logPanel-${id}`));
+    
+    const domain=getSelectedDomain();
+    if(!domain){logger.start('单机同步','');logger.add('请先在上方选择证书域名','error');logger.finish('error','缺少域名');return}
     
     setSyncState(id,'running');logger.start('单机同步',`${s.host}:${s.port}`);
     logger.add(`同步 ${domain} → ${s.host}:${s.port}`,'info','TASK');
@@ -254,11 +254,12 @@ window.syncSingle=async function(id){
     }catch(e){setSyncState(id,'error');logger.add(`错误：${e.message}`,'error');logger.finish('error','网络异常')}
 }
 window.probeRemote=async function(id){
-    const domain=getSelectedDomain();if(!domain){logStart('证书探测','');logAdd('请先在上方选择证书域名','error');logFinish('error','');return}
     const s=S.currentServers.find(x=>x.id===id);if(!s)return;
-    
     const logRow=$(`server-log-row-${id}`); logRow.style.display='table-row';
     const logger=new LogConsole($(`logPanel-${id}`));
+    
+    const domain=getSelectedDomain();
+    if(!domain){logger.start('证书探测','');logger.add('请先在上方选择证书域名','error');logger.finish('error','缺少域名');return}
     
     logger.start('证书探测',`${s.host}:${s.port}`);logger.add(`探测 ${s.host}:${s.port} 上的 ${domain}`,'info','TASK');
     try{const r=await fetch(`/api/servers/${id}/remote-cert-info?domain=${encodeURIComponent(domain)}`);const d=await r.json();
