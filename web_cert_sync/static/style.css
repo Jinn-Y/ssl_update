@@ -106,7 +106,7 @@ a{color:var(--primary);text-decoration:none}
 .sidebar-user-role{font-size:.76rem;color:var(--muted)}
 
 /* ===== 主内容区 ===== */
-.main-content{padding:24px 28px;overflow-y:auto;max-width:1200px}
+.main-content{width:100%;max-width:1200px;justify-self:center;margin:0 auto;padding:24px 28px;overflow-y:auto}
 .view{display:none}
 .view.active{display:block}
 .view-header{margin-bottom:24px}
