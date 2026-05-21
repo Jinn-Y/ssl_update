@@ -5,8 +5,8 @@ services:
     build: .
     container_name: cert-sync-web
     cpus: "1.0"
-    mem_limit: 512m
-    memswap_limit: 512m
+    mem_limit: 256m
+    memswap_limit: 256m
     pids_limit: 256
     ports:
       - "5000:5000"
