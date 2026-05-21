@@ -37,6 +37,7 @@ ACME_CERT_ROOT=/root/.acme.sh
 REMOTE_USER=root
 REMOTE_DIR_BASE=/etc/ssl
 MAX_JOBS=10
+GUNICORN_WORKERS=2
 ```
 
 ### 卷挂载
@@ -152,7 +153,32 @@ certbot --nginx -d cert-sync.example.com
 
 ### 3. 资源限制
 
-在 `docker-compose.yml` 中添加资源限制：
+`docker-compose.yml` 已经为容器设置了默认资源上限，防止应用异常时占满服务器资源：
+
+```yaml
+cpus: "1.0"
+mem_limit: 512m
+memswap_limit: 512m
+pids_limit: 256
+```
+
+说明：
+
+- `cpus: "1.0"`：最多使用 1 个 CPU 核心的计算量
+- `mem_limit: 512m`：容器内存上限 512 MB
+- `memswap_limit: 512m`：禁止额外使用 swap，避免内存压力拖垮宿主机
+- `pids_limit: 256`：限制进程/线程数量，防止异常 fork 或线程膨胀
+- `GUNICORN_WORKERS=2`：默认启动 2 个 Gunicorn worker，减少 Python 进程内存占用
+
+如果服务器资源较小，可以进一步降低：
+
+```yaml
+cpus: "0.5"
+mem_limit: 256m
+memswap_limit: 256m
+```
+
+如果使用 Docker Swarm，才需要 `deploy.resources`：
 
 ```yaml
 services:

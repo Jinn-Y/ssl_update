@@ -29,4 +29,4 @@ ENV FLASK_APP=app.py
 ENV PYTHONUNBUFFERED=1
 
 # 使用 gunicorn 运行（生产环境）
-CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "--timeout", "120", "app:app"]
+CMD ["sh", "-c", "gunicorn -w ${GUNICORN_WORKERS:-2} -b 0.0.0.0:5000 --timeout ${GUNICORN_TIMEOUT:-120} app:app"]

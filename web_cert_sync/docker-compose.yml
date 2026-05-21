@@ -4,6 +4,10 @@ services:
   cert-sync:
     build: .
     container_name: cert-sync-web
+    cpus: "1.0"
+    mem_limit: 512m
+    memswap_limit: 512m
+    pids_limit: 256
     ports:
       - "5000:5000"
     volumes:
@@ -21,6 +25,7 @@ services:
       - DRY_RUN=False
       - SERVER_LIST_PATH=/app/servers.txt
       - SERVER_DB_PATH=/app/data/servers.db
+      - GUNICORN_WORKERS=2
     restart: unless-stopped
     networks:
       - cert-sync-network
