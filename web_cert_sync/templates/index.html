@@ -69,26 +69,6 @@
         <!-- 服务器管理 -->
         <section id="view-servers" class="view">
             <div class="view-header"><h1 class="view-title">服务器管理</h1><p class="view-subtitle">管理所有同步目标服务器，支持分组、搜索、单机同步和远端证书探测。</p></div>
-            <!-- 编辑表单 -->
-            <div class="card" style="margin-bottom:20px">
-                <div class="card-head"><h2 class="card-title" id="editorTitle">新增服务器</h2><p class="card-subtitle">新增或编辑服务器配置。</p></div>
-                <div class="card-body">
-                    <form id="serverForm">
-                        <input type="hidden" id="serverId">
-                        <div class="row-3">
-                            <div class="field"><label for="serverHost">主机 / IP</label><input id="serverHost" type="text" placeholder="192.168.1.100" required></div>
-                            <div class="field"><label for="serverPort">端口</label><input id="serverPort" type="number" min="1" max="65535" value="22" required></div>
-                            <div class="field"><label for="serverGroup">分组</label><input id="serverGroup" type="text" value="default" placeholder="prod"></div>
-                        </div>
-                        <div class="row">
-                            <div class="field"><label for="serverRemark">备注</label><input id="serverRemark" type="text" placeholder="华南入口节点"></div>
-                            <div class="field"><label for="serverEnabled">状态</label><select id="serverEnabled"><option value="true">启用</option><option value="false">禁用</option></select></div>
-                        </div>
-                        <div class="btn-row"><button type="submit" class="btn-primary" id="saveServerBtn">保存</button><button type="button" class="btn-secondary" id="resetServerBtn">清空</button></div>
-                    </form>
-                    <div id="serverMessage" class="message"></div>
-                </div>
-            </div>
             <!-- 域名选择（同步/探测用） -->
             <div class="card" style="margin-bottom:20px">
                 <div class="card-head"><h2 class="card-title">同步域名</h2><p class="card-subtitle">选择证书域名后，可对下方服务器执行单机同步或远端证书探测。</p></div>
@@ -107,8 +87,18 @@
             </div>
             <!-- 服务器表格 -->
             <div class="card">
-                <div class="card-head"><h2 class="card-title">全局服务器库</h2></div>
+                <div class="card-head card-head-row">
+                    <div>
+                        <h2 class="card-title">全局服务器库</h2>
+                        <p class="card-subtitle">服务器信息集中维护，新增和编辑会在弹窗中完成。</p>
+                    </div>
+                    <button type="button" id="openServerModalBtn" class="btn-primary btn-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+                        新增服务器
+                    </button>
+                </div>
                 <div class="card-body">
+                    <div id="serverListMessage" class="message"></div>
                     <div class="toolbar">
                         <div class="field"><label for="searchInput">搜索</label><input id="searchInput" type="text" placeholder="主机、端口、分组、备注"></div>
                         <div class="field" style="max-width:160px"><label for="pageSizeSelect">每页</label><select id="pageSizeSelect"><option value="10">10</option><option value="20" selected>20</option><option value="50">50</option><option value="100">100</option></select></div>
@@ -206,6 +196,40 @@
             </div>
         </section>
     </main>
+</div>
+
+<!-- 服务器新增/编辑弹窗 -->
+<div id="serverModal" class="modal hidden" aria-hidden="true">
+    <div class="modal-backdrop" data-close-server-modal></div>
+    <section class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="editorTitle">
+        <div class="modal-head">
+            <div>
+                <h2 class="card-title" id="editorTitle">新增服务器</h2>
+                <p class="card-subtitle">填写同步目标服务器配置。</p>
+            </div>
+            <button type="button" class="modal-close" id="closeServerModalBtn" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <form id="serverForm">
+                <input type="hidden" id="serverId">
+                <div class="row-3">
+                    <div class="field"><label for="serverHost">主机 / IP</label><input id="serverHost" type="text" placeholder="192.168.1.100" required></div>
+                    <div class="field"><label for="serverPort">端口</label><input id="serverPort" type="number" min="1" max="65535" value="22" required></div>
+                    <div class="field"><label for="serverGroup">分组</label><input id="serverGroup" type="text" value="default" placeholder="prod"></div>
+                </div>
+                <div class="row">
+                    <div class="field"><label for="serverRemark">备注</label><input id="serverRemark" type="text" placeholder="华南入口节点"></div>
+                    <div class="field"><label for="serverEnabled">状态</label><select id="serverEnabled"><option value="true">启用</option><option value="false">禁用</option></select></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-primary" id="saveServerBtn">保存</button>
+                    <button type="button" class="btn-secondary" id="resetServerBtn">清空</button>
+                    <button type="button" class="btn-secondary" data-close-server-modal>取消</button>
+                </div>
+            </form>
+            <div id="serverMessage" class="message"></div>
+        </div>
+    </section>
 </div>
 
 <!-- 移动端底部 Tab Bar -->

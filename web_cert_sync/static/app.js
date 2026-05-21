@@ -212,6 +212,26 @@ function setSyncState(id,status){
     btn.textContent=m[status]||'单机同步';
     btn.disabled=status==='running'||btn.dataset.enabled!=='true';
 }
+function openServerModal(){
+    const modal=$('serverModal');
+    if(!modal)return;
+    clearMsg($('serverMessage'));
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden','false');
+    document.body.classList.add('modal-open');
+    setTimeout(()=>$('serverHost')?.focus(), 0);
+}
+function closeServerModal(){
+    const modal=$('serverModal');
+    if(!modal)return;
+    modal.classList.add('hidden');
+    modal.setAttribute('aria-hidden','true');
+    document.body.classList.remove('modal-open');
+}
+function openNewServerModal(){
+    resetForm();
+    openServerModal();
+}
 function resetForm(){
     S.editingId=null;$('serverId').value='';$('serverHost').value='';$('serverPort').value='22';
     $('serverGroup').value='default';$('serverRemark').value='';$('serverEnabled').value='true';
@@ -227,16 +247,15 @@ window.editServer=function(id){
     const s=S.currentServers.find(x=>x.id===id);
     if(s){
         fillForm(s);
-        /* 自动滚动到编辑表单 */
-        $('editorTitle').scrollIntoView({behavior:'smooth',block:'start'});
+        openServerModal();
     }
 }
 window.removeServer=async function(id){
     if(!confirm('确认删除？'))return;
     try{const r=await fetch(`/api/servers/${id}`,{method:'DELETE'});const d=await r.json();
     if(!d.success)throw new Error(d.error);if(S.editingId===id)resetForm();delete S.syncStates[id];
-    showMsg($('serverMessage'),'已删除');if(S.page>1&&S.currentServers.length===1)S.page--;await loadServers();
-    }catch(e){showMsg($('serverMessage'),e.message,'error')}
+    showMsg($('serverListMessage'),'已删除');if(S.page>1&&S.currentServers.length===1)S.page--;await loadServers();
+    }catch(e){showMsg($('serverListMessage'),e.message,'error')}
 }
 window.syncSingle=async function(id){
     const s=S.currentServers.find(x=>x.id===id);if(!s)return;
@@ -312,7 +331,7 @@ async function saveServer(e){
     try{const r=await fetch(isEdit?`/api/servers/${S.editingId}`:'/api/servers',{method:isEdit?'PUT':'POST',
         headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
     const d=await r.json();if(!d.success)throw new Error(d.error);
-    showMsg($('serverMessage'),isEdit?'已更新':'已创建');resetForm();await loadServers();
+    showMsg($('serverListMessage'),isEdit?'已更新':'已创建');resetForm();closeServerModal();await loadServers();
     }catch(e){showMsg($('serverMessage'),e.message,'error')}
 }
 
@@ -438,6 +457,10 @@ document.addEventListener('DOMContentLoaded',function(){
     // 主题
     const ts=$('themeSelect');if(ts)ts.addEventListener('change',e=>{localStorage.setItem('theme-preference',e.target.value);applyTheme(e.target.value)});
     // 服务器表单
+    $('openServerModalBtn')?.addEventListener('click',openNewServerModal);
+    $('closeServerModalBtn')?.addEventListener('click',closeServerModal);
+    document.querySelectorAll('[data-close-server-modal]').forEach(b=>b.addEventListener('click',closeServerModal));
+    document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('serverModal')?.classList.contains('hidden'))closeServerModal()});
     $('serverForm').addEventListener('submit',saveServer);
     $('resetServerBtn').addEventListener('click',()=>{resetForm();clearMsg($('serverMessage'))});
     // 搜索分页
